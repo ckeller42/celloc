@@ -1,6 +1,8 @@
 #!/bin/sh
-# Build a geolocd .ipk from a prebuilt static binary — no OpenWrt SDK needed.
-# An .ipk is an ar archive of: debian-binary, control.tar.gz, data.tar.gz.
+# Build a geolocd .ipk from a prebuilt static binary using the canonical
+# opkg-build tool (vendored alongside this script). Requires GNU binutils `ar`
+# and bash (both present in CI and on a typical Linux dev box; macOS BSD `ar`
+# is not supported — build releases in CI).
 #
 # Usage: build-ipk.sh <geolocd-binary> <version> [arch] [outdir]
 #   arch defaults to aarch64_cortex-a53 (GL-E5800); outdir defaults to ./dist
@@ -14,16 +16,16 @@ OUTDIR=${4:-dist}
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+pkg="$work/pkg"
 
-# --- data: the installed filesystem tree (portable; no GNU `install -D`) ---
-mkdir -p "$work/data/usr/bin" "$work/data/etc/init.d" "$work/data/etc/config"
-cp "$BIN"                       "$work/data/usr/bin/geolocd";   chmod 0755 "$work/data/usr/bin/geolocd"
-cp "$here/files/geolocd.init"   "$work/data/etc/init.d/geolocd"; chmod 0755 "$work/data/etc/init.d/geolocd"
-cp "$here/files/geolocd.config" "$work/data/etc/config/geolocd"; chmod 0644 "$work/data/etc/config/geolocd"
+# --- data tree ---
+mkdir -p "$pkg/usr/bin" "$pkg/etc/init.d" "$pkg/etc/config" "$pkg/CONTROL"
+cp "$BIN"                       "$pkg/usr/bin/geolocd";    chmod 0755 "$pkg/usr/bin/geolocd"
+cp "$here/files/geolocd.init"   "$pkg/etc/init.d/geolocd"; chmod 0755 "$pkg/etc/init.d/geolocd"
+cp "$here/files/geolocd.config" "$pkg/etc/config/geolocd"; chmod 0644 "$pkg/etc/config/geolocd"
 
-# --- control: package metadata + maintainer scripts ---
-mkdir -p "$work/control"
-cat > "$work/control/control" <<EOF
+# --- CONTROL ---
+cat > "$pkg/CONTROL/control" <<EOF
 Package: geolocd
 Version: $VERSION
 Architecture: $ARCH
@@ -32,35 +34,18 @@ Section: net
 Priority: optional
 Description: celloc cell-tower geolocation daemon, served over the gpsd protocol.
 EOF
-printf '/etc/config/geolocd\n' > "$work/control/conffiles"
-cat > "$work/control/postinst" <<'EOF'
+printf '/etc/config/geolocd\n' > "$pkg/CONTROL/conffiles"
+cat > "$pkg/CONTROL/postinst" <<'EOF'
 #!/bin/sh
 [ -n "${IPKG_INSTROOT:-}" ] && exit 0
 /etc/init.d/geolocd enable
 /etc/init.d/geolocd start
 exit 0
 EOF
-chmod 0755 "$work/control/postinst"
-
-# --- assemble ---
-( cd "$work/data"    && tar --numeric-owner --owner=0 --group=0 -czf ../data.tar.gz ./ )
-( cd "$work/control" && tar --numeric-owner --owner=0 --group=0 -czf ../control.tar.gz ./ )
-printf '2.0\n' > "$work/debian-binary"
+chmod 0755 "$pkg/CONTROL/postinst"
 
 mkdir -p "$OUTDIR"
-out="$OUTDIR/geolocd_${VERSION}_${ARCH}.ipk"
-
-# Build the ar archive by hand — portable, and avoids macOS `ar` inserting a
-# __.SYMDEF symbol table that opkg would choke on.
-ar_add() { # <archive> <file> <member-name>
-	_sz=$(wc -c < "$2")
-	printf '%-16s%-12d%-6d%-6d%-8s%-10d`\n' "$3" 0 0 0 100644 "$_sz" >> "$1"
-	cat "$2" >> "$1"
-	[ $((_sz % 2)) -eq 1 ] && printf '\n' >> "$1"
-	return 0
-}
-printf '!<arch>\n' > "$out"
-ar_add "$out" "$work/debian-binary"   debian-binary
-ar_add "$out" "$work/control.tar.gz"  control.tar.gz
-ar_add "$out" "$work/data.tar.gz"     data.tar.gz
-echo "$out"
+# opkg-build cd's internally, so it needs an absolute destination.
+OUTDIR=$(CDPATH= cd -- "$OUTDIR" && pwd)
+bash "$here/opkg-build" -o root -g root "$pkg" "$OUTDIR" >&2
+echo "$OUTDIR/geolocd_${VERSION}_${ARCH}.ipk"
