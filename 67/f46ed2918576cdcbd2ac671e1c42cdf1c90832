@@ -1,0 +1,26 @@
+cmd/geoinflux/main.go
+  s_b8af11b0ef3dca::t_5773278762efc5 69,71-82,87,94-95,98
+pi/geoinflux.env.example
+  s_b8af11b0ef3dca::t_e4e8176b672cd4 2-3,5-6
+internal/gpsd/client.go
+  s_b8af11b0ef3dca::t_0905c2c267edce 9,16-20
+  s_b8af11b0ef3dca::t_683a758dcbe57b 43-45
+internal/gpsd/client_parse_test.go
+  s_b8af11b0ef3dca::t_9db00251058000 1-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "67f46ed2918576cdcbd2ac671e1c42cdf1c90832",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
