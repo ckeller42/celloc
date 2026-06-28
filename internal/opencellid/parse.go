@@ -19,6 +19,7 @@ type Location struct {
 // Status classifies a lookup outcome so callers can decide retry vs give-up.
 type Status int
 
+// Lookup outcome classifications.
 const (
 	StatusOK          Status = iota // usable Location
 	StatusUnknownCell               // cell not in the DB (no/zero coordinates)

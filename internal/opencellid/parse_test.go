@@ -14,8 +14,10 @@ func TestParseResponse(t *testing.T) {
 		want   opencellid.Status
 		loc    opencellid.Location
 	}{
-		{"ok", 200, `{"lat":48.7698,"lon":9.1676,"range":1548}`, opencellid.StatusOK,
-			opencellid.Location{Lat: 48.7698, Lon: 9.1676, Range: 1548}},
+		{
+			"ok", 200, `{"lat":48.7698,"lon":9.1676,"range":1548}`, opencellid.StatusOK,
+			opencellid.Location{Lat: 48.7698, Lon: 9.1676, Range: 1548},
+		},
 		{"unknown zero", 200, `{"lat":0,"lon":0,"range":0}`, opencellid.StatusUnknownCell, opencellid.Location{}},
 		{"unknown empty", 200, `{}`, opencellid.StatusUnknownCell, opencellid.Location{}},
 		{"unknown error field", 200, `{"error":"cell not found"}`, opencellid.StatusUnknownCell, opencellid.Location{}},

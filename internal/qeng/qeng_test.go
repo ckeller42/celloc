@@ -92,10 +92,10 @@ func TestGarbageDoesNotPanic(t *testing.T) {
 		`+QENG: "LTE","FDD",x,y,z,...`, // non-numeric mcc
 		`random noise`,
 	} {
-		if _, err := qeng.ParseServingCell(in); err == nil {
-			// some may decode partially; just must not panic
-			_ = err
-		}
+		t.Run(in, func(*testing.T) {
+			// Must not panic; partial decode or ErrNoCells are both acceptable.
+			_, _ = qeng.ParseServingCell(in)
+		})
 	}
 }
 

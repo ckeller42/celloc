@@ -21,6 +21,7 @@ import (
 // Radio is the access technology of a serving-cell line.
 type Radio string
 
+// Recognised access technologies in +QENG serving-cell lines.
 const (
 	RadioLTE     Radio = "LTE"
 	RadioNR5GNSA Radio = "NR5G-NSA"
