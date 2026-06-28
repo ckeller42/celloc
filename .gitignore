@@ -1,0 +1,16 @@
+# Build output
+/dist/
+/bin/
+*.ipk
+celloc
+geolocd
+geoinflux
+
+# Test / coverage
+*.out
+cover.out
+coverage.*
+
+# Editor / OS
+.DS_Store
+*.swp

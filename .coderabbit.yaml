@@ -1,0 +1,42 @@
+# CodeRabbit AI review config — https://docs.coderabbit.ai
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+early_access: false
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_instructions:
+    - path: "**/*.go"
+      instructions: >-
+        Enforce the pure-vs-I/O split: parsing/marshaling packages must stay
+        free of network, filesystem, env and time-of-day access (inject them).
+        Flag any fabricated GPS data — a cell fix must be TPV mode 2 with
+        eph=epx=epy from the OpenCelliD range and no alt/speed/track. Flag
+        secrets (OpenCelliD/InfluxDB tokens) in argv, logs, or committed files.
+    - path: "**/*_test.go"
+      instructions: >-
+        Prefer table-driven tests. Require edge cases: garbage/partial AT input,
+        error/transient/unknown-cell paths, and CRLF handling. Do not weaken
+        assertions just to raise coverage.
+    - path: "packaging/openwrt/**"
+      instructions: >-
+        Verify procd usage, conffiles for /etc/config/geolocd, and that the
+        firmware-upgrade (sysupgrade wipes /usr/bin) caveat is handled/documented.
+  tools:
+    golangci-lint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+chat:
+  auto_reply: true
