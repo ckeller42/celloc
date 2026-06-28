@@ -1,0 +1,32 @@
+CONTRIBUTING.md
+  s_b8af11b0ef3dca::t_9b7e2082043941 1-43
+README.md
+  s_b8af11b0ef3dca::t_1b05809a4c479b 36-39,41,44-45,51
+  s_b8af11b0ef3dca::t_786b3c017c2bc9 52
+.github/workflows/release.yml
+  s_b8af11b0ef3dca::t_e2edf904635a08 1-46
+SECURITY.md
+  s_b8af11b0ef3dca::t_385afdf5e0707c 1-30
+.pre-commit-config.yaml
+  s_b8af11b0ef3dca::t_2b6ad96861d23e 1-41
+.github/workflows/ci.yml
+  s_b8af11b0ef3dca::t_e44ca7acdf0bd4 19-20,23-24,38-39,42,51-53,60-61,65-67,72-73,84,92,98
+docs/ARCHITECTURE.md
+  s_b8af11b0ef3dca::t_44ed55b2a73f36 1-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "6422e54322785d6680c66ae0086dce78e2f71f10",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
