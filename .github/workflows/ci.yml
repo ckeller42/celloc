@@ -78,6 +78,13 @@ jobs:
           sh packaging/openwrt/build-ipk.sh dist/geolocd 0.0.0-ci aarch64_cortex-a53 dist
           echo "--- ipk members ---"; ar t dist/*.ipk
           ar t dist/*.ipk | tr '\n' ' ' | grep -q "debian-binary control.tar.gz data.tar.gz"
+      - name: Validate .ipk installs under real opkg (OpenWrt container)
+        run: |
+          docker run --rm -v "$PWD/dist:/dist" openwrt/rootfs:x86-64-23.05.4 sh -c '
+            mkdir -p /var/lock
+            opkg install --force-architecture --force-depends /dist/*.ipk || true
+            test -x /usr/bin/geolocd && test -f /etc/init.d/geolocd && test -f /etc/config/geolocd
+          '
       - uses: actions/upload-artifact@v4
         with:
           name: geolocd-ipk

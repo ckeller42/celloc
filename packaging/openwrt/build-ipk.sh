@@ -49,12 +49,25 @@ printf '2.0\n' > "$work/debian-binary"
 
 mkdir -p "$OUTDIR"
 out="$OUTDIR/geolocd_${VERSION}_${ARCH}.ipk"
+rm -f "$out"
 
-# Build the ar archive by hand — portable, and avoids macOS `ar` inserting a
-# __.SYMDEF symbol table that opkg would choke on.
+# Prefer GNU ar — it produces the exact archive layout OpenWrt's opkg expects
+# (this is how every .ipk in the OpenWrt feeds is built). Releases are built in
+# CI on Linux, so this is the path that matters.
+if ar --version 2>/dev/null | grep -qi 'GNU ar'; then
+	( cd "$work" && ar rcD "$(basename "$out")" debian-binary control.tar.gz data.tar.gz )
+	mv "$work/$(basename "$out")" "$out"
+	echo "$out"
+	exit 0
+fi
+
+# Fallback hand-rolled ar (e.g. on macOS, whose BSD `ar` injects a __.SYMDEF
+# member that opkg rejects). Use the GNU short-name convention: a trailing '/'
+# on the member name, which opkg/libarchive strip. Best-effort for local dev;
+# the authoritative artifact comes from CI's GNU ar above.
 ar_add() { # <archive> <file> <member-name>
-	_sz=$(wc -c < "$2")
-	printf '%-16s%-12d%-6d%-6d%-8s%-10d`\n' "$3" 0 0 0 100644 "$_sz" >> "$1"
+	_sz=$(wc -c < "$2" | tr -d ' ')
+	printf '%-16s%-12d%-6d%-6d%-8s%-10d`\n' "$3/" 0 0 0 100644 "$_sz" >> "$1"
 	cat "$2" >> "$1"
 	[ $((_sz % 2)) -eq 1 ] && printf '\n' >> "$1"
 	return 0
