@@ -1,0 +1,15 @@
+[Unit]
+Description=celloc geoinflux — gpsd (router geolocd) to InfluxDB uploader
+After=network-online.target influxdb.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/geoinflux
+EnvironmentFile=/etc/buspi/geo.env
+Restart=always
+RestartSec=15
+User=pi
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

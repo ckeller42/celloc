@@ -5,6 +5,7 @@ package gpsd
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/ckeller42/celloc/internal/source"
 )
@@ -50,11 +51,12 @@ type Watch struct {
 // clients ignore unknown keys; celloc's own uploader reads it to preserve the
 // MCC/MNC/CID/TAC the InfluxDB schema wants without breaking gpsd compatibility.
 type CellFix struct {
-	MCC   int   `json:"mcc"`
-	MNC   int   `json:"mnc"`
-	CID   int64 `json:"cid"`
-	TAC   int   `json:"tac"`
-	Range int   `json:"range"`
+	Radio string `json:"radio"`
+	MCC   int    `json:"mcc"`
+	MNC   int    `json:"mnc"`
+	CID   int64  `json:"cid"`
+	TAC   int    `json:"tac"`
+	Range int    `json:"range"`
 }
 
 // TPV is a time-position-velocity report. Optional numeric fields are pointers
@@ -106,9 +108,42 @@ func TPVFromFix(f source.Fix, device string) TPV {
 	t.Lat, t.Lon = &lat, &lon
 	t.EPX, t.EPY, t.EPH = &epx, &epy, &eph
 	if f.MCC != 0 || f.CID != 0 {
-		t.CellFix = &CellFix{MCC: f.MCC, MNC: f.MNC, CID: f.CID, TAC: f.TAC, Range: int(f.EPH)}
+		t.CellFix = &CellFix{Radio: f.Radio, MCC: f.MCC, MNC: f.MNC, CID: f.CID, TAC: f.TAC, Range: int(f.EPH)}
 	}
 	return t
+}
+
+// FixFromTPV reconstructs a source.Fix from a received TPV (the inverse of
+// TPVFromFix), used by the Pi uploader. Cell identifiers come from the cellfix
+// extension; a TPV without a fix yields Mode 0.
+func FixFromTPV(t TPV) source.Fix {
+	f := source.Fix{Mode: t.Mode}
+	if t.Lat != nil {
+		f.Lat = *t.Lat
+	}
+	if t.Lon != nil {
+		f.Lon = *t.Lon
+	}
+	if t.EPH != nil {
+		f.EPH = *t.EPH
+	}
+	if t.EPX != nil {
+		f.EPX = *t.EPX
+	}
+	if t.EPY != nil {
+		f.EPY = *t.EPY
+	}
+	if t.Time != "" {
+		if ts, err := time.Parse(timeFormat, t.Time); err == nil {
+			f.Time = ts
+		}
+	}
+	if t.CellFix != nil {
+		f.Source = "cell"
+		f.Radio = t.CellFix.Radio
+		f.MCC, f.MNC, f.CID, f.TAC = t.CellFix.MCC, t.CellFix.MNC, t.CellFix.CID, t.CellFix.TAC
+	}
+	return f
 }
 
 // SKYEmpty returns the satellite-less SKY report for the device.

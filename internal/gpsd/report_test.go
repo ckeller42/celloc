@@ -64,6 +64,13 @@ func TestSKYEmptyHasNoFakeDOP(t *testing.T) {
 	}
 }
 
+func TestFixFromTPV_NoFix(t *testing.T) {
+	got := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 0})
+	if got.HasFix() || got.Source != "" {
+		t.Fatalf("no-fix TPV should yield empty fix: %+v", got)
+	}
+}
+
 func TestMarshalLineFraming(t *testing.T) {
 	b, err := gpsd.MarshalLine(gpsd.Version{Class: "VERSION", Release: "celloc-test"})
 	if err != nil {
