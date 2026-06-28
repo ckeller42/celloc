@@ -6,12 +6,18 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"time"
 )
 
 // Client is a minimal gpsd client: connect, enable watching, read TPV reports.
 type Client struct {
 	conn net.Conn
 	r    *bufio.Reader
+
+	// ReadTimeout bounds each report read so a stalled/half-open connection
+	// surfaces an error (letting the caller reconnect) instead of blocking
+	// forever. Zero disables the deadline.
+	ReadTimeout time.Duration
 }
 
 // Dial connects to a gpsd server (e.g. the router's geolocd on :2947).
@@ -34,6 +40,9 @@ func (c *Client) Watch() error {
 // Returns the underlying read error (e.g. on Close) so callers can reconnect.
 func (c *Client) ReadTPV() (TPV, error) {
 	for {
+		if c.ReadTimeout > 0 && c.conn != nil {
+			_ = c.conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+		}
 		line, err := c.r.ReadBytes('\n')
 		if err != nil {
 			return TPV{}, err

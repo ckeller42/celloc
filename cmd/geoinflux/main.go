@@ -66,27 +66,40 @@ func stream(ctx context.Context, addr string, w *influx.Writer, minInterval time
 	if err != nil {
 		return err
 	}
+	c.ReadTimeout = 90 * time.Second // surface stalled connections -> reconnect
 	defer func() { _ = c.Close() }()
-	go func() { <-ctx.Done(); _ = c.Close() }() // unblock ReadTPV on shutdown
+
+	// Unblock ReadTPV on shutdown, but tie the goroutine to this attempt so it
+	// can't leak across reconnects.
+	stopped := make(chan struct{})
+	defer close(stopped)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = c.Close()
+		case <-stopped:
+		}
+	}()
 
 	if err := c.Watch(); err != nil {
 		return err
 	}
-	var last time.Time
+	var lastAttempt time.Time
 	for {
 		tpv, err := c.ReadTPV()
 		if err != nil {
 			return err
 		}
 		f := gpsd.FixFromTPV(tpv)
-		if !f.HasFix() || time.Since(last) < minInterval {
+		now := time.Now()
+		if !f.HasFix() || (!lastAttempt.IsZero() && now.Sub(lastAttempt) < minInterval) {
 			continue
 		}
+		lastAttempt = now // debounce attempts, not just successes
 		if err := w.Write(ctx, influx.FixLine(f)); err != nil {
 			log.Printf("geoinflux: write failed: %v", err)
 			continue
 		}
-		last = time.Now()
 		log.Printf("geoinflux: wrote %.4f,%.4f eph=%.0fm (%s)", f.Lat, f.Lon, f.EPH, f.Radio)
 	}
 }
