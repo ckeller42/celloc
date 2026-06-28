@@ -45,5 +45,7 @@ EOF
 chmod 0755 "$pkg/CONTROL/postinst"
 
 mkdir -p "$OUTDIR"
+# opkg-build cd's internally, so it needs an absolute destination.
+OUTDIR=$(CDPATH= cd -- "$OUTDIR" && pwd)
 bash "$here/opkg-build" -o root -g root "$pkg" "$OUTDIR" >&2
 echo "$OUTDIR/geolocd_${VERSION}_${ARCH}.ipk"
