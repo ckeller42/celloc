@@ -1,0 +1,31 @@
+# Qodo Merge (PR-Agent) configuration — second AI reviewer alongside CodeRabbit.
+# Hosted app (free for open source): https://github.com/marketplace/qodo-merge-pro
+# Docs: https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+
+[pr_reviewer]
+# Keep it low-noise: branch protection requires every comment thread to be
+# resolved before merge, and CodeRabbit already covers general review.
+num_max_findings = 5
+require_tests_review = true
+require_security_review = true
+require_can_be_split_review = false
+persistent_comment = true
+final_update_message = false
+extra_instructions = """
+Project rules to enforce:
+- Pure-vs-I/O split: parsing/marshaling packages (qeng, opencellid/parse, gpsd/report,
+  influx/line, uciconf/config, source) must not do network/filesystem/env/wall-clock
+  access — those are injected via interfaces.
+- No fabricated positioning data: a cell fix is gpsd TPV mode=2 with eph==epx==epy from
+  the OpenCelliD range and no alt/speed/track; no-fix is mode=0 with no coordinates.
+- Secrets (OpenCelliD / InfluxDB tokens) must never appear in argv, logs, or committed files.
+- Tests: prefer table-driven, cover garbage/error/edge paths; do not weaken assertions for coverage.
+"""
+
+[pr_code_suggestions]
+commitable_code_suggestions = false
+num_code_suggestions_per_chunk = 3
+
+[pr_description]
+generate_ai_title = false
+publish_labels = false
