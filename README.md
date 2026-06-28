@@ -1,7 +1,6 @@
 # celloc
 
 [![CI](https://github.com/ckeller42/celloc/actions/workflows/ci.yml/badge.svg)](https://github.com/ckeller42/celloc/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ckeller42/celloc/badges/coverage.json)](https://github.com/ckeller42/celloc/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ckeller42/celloc)](https://github.com/ckeller42/celloc/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ckeller42/celloc)](https://goreportcard.com/report/github.com/ckeller42/celloc)
 [![License: MIT](https://img.shields.io/github/license/ckeller42/celloc)](LICENSE)
@@ -34,19 +33,22 @@ modem (AT+QENG) ─▶ geolocd ─▶ OpenCelliD ─▶ position ─▶ gpsd :29
 
 ## Status
 
-Early development. Pure core (AT/QENG parsing, OpenCelliD resolution, gpsd reports, InfluxDB
-line protocol) is implemented and tested; the daemon, packaging, and uploader land next. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Working end to end: `geolocd` (router daemon + gpsd server) and `geoinflux` (Pi uploader) are
+implemented and tested, and the OpenWrt `.ipk` builds in CI. Docs:
+[ARCHITECTURE](docs/ARCHITECTURE.md) · [INSTALL](docs/INSTALL.md) ·
+[CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md).
 
-## Quick start (planned)
+## Quick start
 
 ```sh
-# on the router
-opkg install geolocd_*_aarch64_cortex-a53.ipk
+# on the router — install from a release (or build the ipk yourself, see INSTALL.md)
+opkg install https://github.com/ckeller42/celloc/releases/latest/download/geolocd_aarch64_cortex-a53.ipk
 uci set geolocd.main.key='pk.your_opencellid_key'
 uci commit geolocd && /etc/init.d/geolocd restart
 gpspipe -w <router-ip>:2947     # verify a TPV with lat/lon
 ```
+
+Then run `geoinflux` on the Pi to push fixes to InfluxDB — see [INSTALL.md](docs/INSTALL.md).
 
 ## License
 

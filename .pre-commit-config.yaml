@@ -1,0 +1,41 @@
+# Shift-left checks so format/lint/build/secret issues are caught locally,
+# not on a red CI run. Install: pipx install pre-commit && pre-commit install
+# (and: pre-commit install --hook-type pre-push)
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.42.0
+    hooks:
+      - id: markdownlint
+        args: ["--config", ".markdownlint.json"]
+  - repo: local
+    hooks:
+      - id: golangci-lint
+        name: golangci-lint (run + fmt check)
+        entry: golangci-lint run
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: go-build-entrypoints
+        name: go build ./cmd/... (catch missing/broken mains)
+        entry: go build -o /dev/null ./cmd/geolocd ./cmd/geoinflux
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: go-test
+        name: go test ./...
+        entry: go test ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]

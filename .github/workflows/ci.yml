@@ -16,10 +16,12 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.23"
+      - name: Vet
+        run: go vet ./...
       - name: Test (race + coverage)
         run: go test ./... -race -covermode=atomic -coverprofile=cover.out
       - name: Coverage gate (internal >= 85%)
@@ -33,11 +35,11 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.23"
-      - uses: golangci/golangci-lint-action@v7
+      - uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
         with:
           version: v2.1.6
 
@@ -46,39 +48,40 @@ jobs:
     strategy:
       matrix:
         include:
-          - { goarch: arm64 }              # router (aarch64) + arm64 Pi
-          - { goarch: amd64 }              # dev / x86 Pi
-          - { goarch: arm, goarm: "7" }    # 32-bit Pi
+          - { goarch: arm64 }            # router (aarch64) + arm64 Pi
+          - { goarch: amd64 }            # dev / x86 Pi
+          - { goarch: arm, goarm: "7" }  # 32-bit Pi
     env:
       CGO_ENABLED: "0"
       GOOS: linux
       GOARCH: ${{ matrix.goarch }}
       GOARM: ${{ matrix.goarm }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.23"
       - run: go build ./...
+      # Build the entrypoints explicitly so a missing/ignored cmd dir fails CI
+      # (go build ./... silently skips a missing named package).
+      - run: go build -o /dev/null ./cmd/geolocd ./cmd/geoinflux
 
   ipk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.23"
       - name: Build static arm64 geolocd
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/geolocd ./cmd/geolocd
-          file dist/geolocd
           file dist/geolocd | grep -q "statically linked"
       - name: Build .ipk (canonical opkg-build)
         run: |
           sh packaging/openwrt/build-ipk.sh dist/geolocd 0.0.0-ci aarch64_cortex-a53 dist
-          echo "--- ipk members ---"; ar t dist/*.ipk
           ar t dist/*.ipk | tr '\n' ' ' | grep -q "debian-binary control.tar.gz data.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: geolocd-ipk
           path: dist/*.ipk
@@ -86,13 +89,13 @@ jobs:
   markdownlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - run: npx --yes markdownlint-cli@0.42.0 --config .markdownlint.json '**/*.md'
 
   gitleaks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: gitleaks
         run: |
           curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
