@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.23"
+
+      - name: Build binaries + ipk
+        run: |
+          set -eu
+          ver="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          # geoinflux for common Pi/host arches
+          for t in linux/arm64 linux/amd64 linux/arm/7; do
+            os="${t%%/*}"; rest="${t#*/}"; arch="${rest%%/*}"; arm="${rest#*/}"
+            out="dist/geoinflux_${ver}_${os}_${arch}${arm:+v$arm}"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" GOARM="${arm:-}" \
+              go build -ldflags "-s -w -X main.Version=${ver}" -o "$out" ./cmd/geoinflux
+          done
+          # geolocd static arm64 for the router, packaged as .ipk
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+            go build -ldflags "-s -w -X main.Version=${ver}" -o dist/geolocd ./cmd/geolocd
+          sh packaging/openwrt/build-ipk.sh dist/geolocd "${ver}" aarch64_cortex-a53 dist
+          rm -f dist/geolocd
+          ( cd dist && sha256sum * > SHA256SUMS )
+          ls -l dist
+
+      - name: Publish release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.ipk
+            dist/geoinflux_*
+            dist/SHA256SUMS
