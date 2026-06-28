@@ -43,8 +43,11 @@ EOF
 chmod 0755 "$work/control/postinst"
 
 # --- assemble ---
-( cd "$work/data"    && tar --numeric-owner --owner=0 --group=0 -czf ../data.tar.gz ./ )
-( cd "$work/control" && tar --numeric-owner --owner=0 --group=0 -czf ../control.tar.gz ./ )
+# Classic ustar (no pax/GNU extended headers) — OpenWrt's opkg tar reader is
+# picky and rejects pax headers that GNU tar emits with --owner/--group.
+TAR_OPTS="--format=ustar --numeric-owner --owner=0 --group=0"
+( cd "$work/data"    && tar $TAR_OPTS -czf ../data.tar.gz ./ )
+( cd "$work/control" && tar $TAR_OPTS -czf ../control.tar.gz ./ )
 printf '2.0\n' > "$work/debian-binary"
 
 mkdir -p "$OUTDIR"
@@ -55,11 +58,13 @@ rm -f "$out"
 # (this is how every .ipk in the OpenWrt feeds is built). Releases are built in
 # CI on Linux, so this is the path that matters.
 if ar --version 2>/dev/null | grep -qi 'GNU ar'; then
+	echo "build-ipk: using GNU ar" >&2
 	( cd "$work" && ar rcD "$(basename "$out")" debian-binary control.tar.gz data.tar.gz )
 	mv "$work/$(basename "$out")" "$out"
 	echo "$out"
 	exit 0
 fi
+echo "build-ipk: using hand-rolled ar fallback" >&2
 
 # Fallback hand-rolled ar (e.g. on macOS, whose BSD `ar` injects a __.SYMDEF
 # member that opkg rejects). Use the GNU short-name convention: a trailing '/'
