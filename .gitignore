@@ -1,10 +1,10 @@
-# Build output
+# Build output (anchored to repo root / dist so they don't match cmd/geolocd, etc.)
 /dist/
 /bin/
+/geolocd
+/geoinflux
+/celloc
 *.ipk
-celloc
-geolocd
-geoinflux
 
 # Test / coverage
 *.out
