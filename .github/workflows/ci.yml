@@ -82,7 +82,10 @@ jobs:
         run: |
           docker run --rm -v "$PWD/dist:/dist" openwrt/rootfs:x86-64-23.05.4 sh -c '
             mkdir -p /var/lock
-            opkg install --force-architecture --force-depends /dist/*.ipk || true
+            # Accept the aarch64 package on this x86 container — we validate the
+            # package FORMAT/extraction, not that the binary runs here.
+            echo "arch aarch64_cortex-a53 1" > /etc/opkg/arch.conf
+            opkg install --force-depends /dist/*.ipk || true
             test -x /usr/bin/geolocd && test -f /etc/init.d/geolocd && test -f /etc/config/geolocd
           '
       - uses: actions/upload-artifact@v4
