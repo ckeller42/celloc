@@ -3,6 +3,8 @@ package cell_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,6 +100,47 @@ func TestCachedFixServedThenStale(t *testing.T) {
 	now = now.Add(120 * time.Second)
 	if _, err := s.Fix(context.Background()); err == nil {
 		t.Fatal("stale cache should yield ErrNoFix")
+	}
+}
+
+func TestResolveFailureIsLoggedAndClassified(t *testing.T) {
+	now := time.Unix(2000, 0)
+	var logs []string
+	res := resolverFunc(func(context.Context, opencellid.Query) (opencellid.Location, opencellid.Status, error) {
+		return opencellid.Location{}, opencellid.StatusAuth, nil
+	})
+	s := &cell.Source{
+		Runner:     runnerFunc(func(context.Context, string) (string, error) { return lteOut, nil }),
+		Resolver:   res,
+		Radio:      "LTE",
+		StaleAfter: time.Minute,
+		Now:        func() time.Time { return now },
+		Logf:       func(format string, args ...any) { logs = append(logs, fmt.Sprintf(format, args...)) },
+	}
+
+	// A bad key (StatusAuth) must surface a distinct, diagnosable log line.
+	if _, err := s.Fix(context.Background()); err == nil {
+		t.Fatal("want ErrNoFix on auth failure with empty cache")
+	}
+	if len(logs) != 1 || !strings.Contains(logs[0], "opencellid: auth") {
+		t.Fatalf("want one log mentioning 'opencellid: auth', got %v", logs)
+	}
+
+	// Same failure within the throttle window is suppressed.
+	if _, err := s.Fix(context.Background()); err == nil {
+		t.Fatal("want ErrNoFix")
+	}
+	if len(logs) != 1 {
+		t.Fatalf("repeat within throttle should be suppressed, got %v", logs)
+	}
+
+	// After the throttle window it logs again.
+	now = now.Add(2 * time.Minute)
+	if _, err := s.Fix(context.Background()); err == nil {
+		t.Fatal("want ErrNoFix")
+	}
+	if len(logs) != 2 {
+		t.Fatalf("want a second log after throttle window, got %v", logs)
 	}
 }
 
