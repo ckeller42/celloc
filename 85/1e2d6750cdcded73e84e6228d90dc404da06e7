@@ -1,0 +1,21 @@
+internal/wifiscan/scanner.go
+  s_b8af11b0ef3dca::t_382fc86d20d654 1-61
+internal/wifiscan/scanner_test.go
+  s_b8af11b0ef3dca::t_afc36eb0a7b574 1-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "851e2d6750cdcded73e84e6228d90dc404da06e7",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
