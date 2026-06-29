@@ -60,7 +60,7 @@ func TestUbusExtractsResultField(t *testing.T) {
 func TestUbusUppercasesBusInObjectName(t *testing.T) {
 	// uci default is bus 'cpu' (lowercase, correct for gl_modem -B cpu); the ubus
 	// object must still be modem.CPU.AT.
-	exec := func(_ context.Context, name string, args ...string) ([]byte, error) {
+	exec := func(_ context.Context, _ string, args ...string) ([]byte, error) {
 		if args[1] != "modem.CPU.AT" {
 			t.Fatalf("object=%q want modem.CPU.AT", args[1])
 		}
