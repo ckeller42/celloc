@@ -1,0 +1,23 @@
+internal/influx/line.go
+  s_b8af11b0ef3dca::t_b950ca93c746f9 28-35
+internal/source/source.go
+  s_b8af11b0ef3dca::t_494589ceb212f8 32-34
+internal/influx/line_test.go
+  s_b8af11b0ef3dca::t_a80adc3152745d 30-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "95b8e883a771ff207bbc96cb47412a4e08a07a71",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
