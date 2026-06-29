@@ -1,0 +1,22 @@
+docs/superpowers/specs/2026-06-29-wifi-geolocation-design.md
+  s_b8af11b0ef3dca::t_6124b87ec3ae0a 90-92
+  s_b8af11b0ef3dca::t_e9db723dcef2f0 122
+  s_b8af11b0ef3dca::t_5d86a63479808c 1-76,78-89,93-121,123-165
+  s_b8af11b0ef3dca::t_f33c8c4ff1e5e1 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "eb38d34eb63530dcf1a2a145518bbd34bb7204b9",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
