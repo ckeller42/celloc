@@ -1,0 +1,22 @@
+.markdownlint.json
+  s_b8af11b0ef3dca::t_e83f39ecab5c3d 4
+  s_b8af11b0ef3dca::t_0a05b060b8643f 6-7
+docs/superpowers/plans/2026-06-29-wifi-geolocation.md
+  s_b8af11b0ef3dca::t_6cd49ae637c6ed 1-1713
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "aea9e24cd936c3f24bbc5abe51e39a8191aecb3c",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
