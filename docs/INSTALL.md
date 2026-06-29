@@ -38,7 +38,48 @@ logread -e geolocd
 
 ## Pi uploader (`geoinflux`)
 
-See the project README (lands in milestone M4).
+`geoinflux` is a gpsd client that reads fixes from `geolocd` on the router and
+writes them to InfluxDB. Run it on the Pi (or any host that can reach both the
+router's `:2947` and InfluxDB).
+
+### 1. Install the binary
+
+Download the build for your arch from the
+[releases](https://github.com/ckeller42/celloc/releases) and install it at the
+path the service expects (`/usr/local/bin/geoinflux`):
+
+```sh
+# pick the asset matching your arch: linux_arm64 (64-bit Pi), linux_armv7
+# (32-bit Pi), or linux_amd64 (x86 host)
+sudo install -m 0755 geoinflux_*_linux_arm64 /usr/local/bin/geoinflux
+```
+
+### 2. Configure
+
+Create the env file (`0600`, it holds the InfluxDB token) from the example:
+
+```sh
+sudo install -d /etc/buspi
+sudo cp geoinflux.env.example /etc/buspi/geo.env
+sudo chmod 600 /etc/buspi/geo.env
+sudo "${EDITOR:-vi}" /etc/buspi/geo.env   # set GPSD_ADDR, INFLUX_URL, token, org, bucket
+```
+
+`GPSD_ADDR` is the router's gpsd socket, e.g. `192.168.8.1:2947` (or its
+Tailscale IP). The token is read from the environment only — never passed on the
+command line. See [SECURITY.md](../SECURITY.md).
+
+### 3. Install and start the service
+
+```sh
+sudo cp pi/geoinflux.service /etc/systemd/system/geoinflux.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now geoinflux
+journalctl -u geoinflux -f      # watch it connect and write points
+```
+
+Fixes land in the configured bucket as the `geo` measurement (`source=cell`),
+identical to the legacy schema, so existing Grafana panels keep working.
 
 ## Build from source
 

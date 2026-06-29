@@ -57,6 +57,20 @@ func TestUbusExtractsResultField(t *testing.T) {
 	}
 }
 
+func TestUbusUppercasesBusInObjectName(t *testing.T) {
+	// uci default is bus 'cpu' (lowercase, correct for gl_modem -B cpu); the ubus
+	// object must still be modem.CPU.AT.
+	exec := func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if args[1] != "modem.CPU.AT" {
+			t.Fatalf("object=%q want modem.CPU.AT", args[1])
+		}
+		return []byte(`{"result":"+QENG: \"LTE\",262"}`), nil
+	}
+	if _, err := (atrun.Ubus{Bus: "cpu", Exec: exec}).Run(context.Background(), "AT"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestUbusFallsBackToRawOnUnknownShape(t *testing.T) {
 	exec := func(context.Context, string, ...string) ([]byte, error) {
 		return []byte(`{"weird":123}`), nil

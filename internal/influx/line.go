@@ -19,6 +19,11 @@ const Measurement = "geo"
 //
 // No timestamp is appended — InfluxDB assigns server time (matches the seed and
 // the ?precision=s write endpoint).
+//
+// Lat/lon are formatted with strconv.FormatFloat(-1) (shortest round-trippable
+// form). Values are numerically identical to the seed's raw JSON substring and
+// the schema/tags/field-order match byte-for-byte, but the float text may differ
+// in trailing zeros (seed "48.10" vs "48.1"); InfluxDB parses both identically.
 func FixLine(f source.Fix) string {
 	lat := strconv.FormatFloat(f.Lat, 'f', -1, 64)
 	lon := strconv.FormatFloat(f.Lon, 'f', -1, 64)

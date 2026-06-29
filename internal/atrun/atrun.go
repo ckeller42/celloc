@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // Runner executes a single AT command and returns the raw modem response.
@@ -42,13 +43,15 @@ func (g GlModem) Run(ctx context.Context, atCmd string) (string, error) {
 // Ubus runs `ubus call modem.<BUS>.AT get_result_AT '{"cmd":..,"timeout":5}'`
 // and extracts the AT text from the JSON reply.
 type Ubus struct {
-	Bus  string // e.g. "CPU" (object is modem.<Bus>.AT)
+	Bus  string // bus name, any case; the ubus object is modem.<BUS>.AT (upper)
 	Exec Exec
 }
 
-// Run implements Runner.
+// Run implements Runner. The ubus object name uppercases the bus (modem.CPU.AT)
+// while gl_modem expects it lowercased (-B cpu), so a single uci `bus` value
+// (default "cpu") works for both runners.
 func (u Ubus) Run(ctx context.Context, atCmd string) (string, error) {
-	obj := "modem." + u.Bus + ".AT"
+	obj := "modem." + strings.ToUpper(u.Bus) + ".AT"
 	payload, _ := json.Marshal(map[string]any{"cmd": atCmd, "timeout": 5})
 	out, err := u.Exec(ctx, "ubus", "call", obj, "get_result_AT", string(payload))
 	if err != nil {

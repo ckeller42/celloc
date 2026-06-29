@@ -9,7 +9,6 @@ EnvironmentFile=/etc/buspi/geo.env
 Restart=always
 RestartSec=15
 User=pi
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
