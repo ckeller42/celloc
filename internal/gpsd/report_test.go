@@ -80,3 +80,28 @@ func TestMarshalLineFraming(t *testing.T) {
 		t.Fatalf("want CRLF framing: %q", b)
 	}
 }
+
+func TestTPVFromWifiFix(t *testing.T) {
+	f := source.Fix{
+		Time: time.Unix(1700000000, 0).UTC(), Mode: 2,
+		Lat: 48.7701, Lon: 9.169, EPH: 35, EPX: 35, EPY: 35,
+		Source: "wifi", APCount: 7,
+	}
+	tpv := gpsd.TPVFromFix(f, "cell0")
+	if tpv.WifiFix == nil || tpv.WifiFix.APCount != 7 {
+		t.Fatalf("wifix missing/wrong: %+v", tpv.WifiFix)
+	}
+	if tpv.CellFix != nil {
+		t.Fatalf("wifi fix must not carry cellfix")
+	}
+	b, _ := gpsd.MarshalLine(tpv)
+	for _, k := range []string{`"alt"`, `"speed"`, `"track"`, `"cellfix"`} {
+		if bytes.Contains(b, []byte(k)) {
+			t.Fatalf("wifi TPV must not contain %s: %s", k, b)
+		}
+	}
+	back := gpsd.FixFromTPV(tpv)
+	if back.Source != "wifi" || back.APCount != 7 {
+		t.Fatalf("FixFromTPV lost wifi info: %+v", back)
+	}
+}
