@@ -1,0 +1,24 @@
+internal/gpsd/report.go
+  s_b8af11b0ef3dca::t_589a9a6747aeda 157-160
+  s_b8af11b0ef3dca::t_ee19e79a7913ad 118-121
+  s_b8af11b0ef3dca::t_da700b032ea36d 62-68
+  s_b8af11b0ef3dca::t_3a3927a0a6f78f 83
+internal/gpsd/report_test.go
+  s_b8af11b0ef3dca::t_bc80817d5bd5fa 83-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "c3219bf4f2cdab72f52dc0c732df413dfa40f052",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
