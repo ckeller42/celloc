@@ -1,0 +1,31 @@
+internal/source/cell/cell.go
+  s_b8af11b0ef3dca::t_7b278285f16c60 9-11,24-33,43-46,48-52,55,57-60,66-68,70-71,75,79-82,85,89,93,98-102,110-129
+internal/atrun/atrun_test.go
+  s_b8af11b0ef3dca::t_879dbc7d2fab08 60-73
+internal/source/cell/cell_test.go
+  s_b8af11b0ef3dca::t_a453c80edfd288 106-146
+  s_b8af11b0ef3dca::t_8dde2c3003bbad 6-7
+internal/influx/line.go
+  s_b8af11b0ef3dca::t_6936c07d534e6b 22-26
+internal/atrun/atrun.go
+  s_b8af11b0ef3dca::t_8597d00eed752b 46,50-52,54
+  s_b8af11b0ef3dca::t_67406a167a32c9 11
+docs/INSTALL.md
+  s_b8af11b0ef3dca::t_cfab13139ba4d2 41-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "57dbf41b8fc8434691e255851b20a3a2c70bc9fe",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
