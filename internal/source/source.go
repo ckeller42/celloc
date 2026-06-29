@@ -29,6 +29,9 @@ type Fix struct {
 	MNC    int
 	CID    int64
 	TAC    int
+
+	// APCount is the number of WiFi APs used for a wifi fix (0 for cell).
+	APCount int
 }
 
 // HasFix reports whether the fix carries a usable position.
