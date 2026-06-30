@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ckeller42/celloc/internal/unwiredlabs"
+	"github.com/ckeller42/celloc/internal/wifiscan"
 )
 
 type roundTrip struct {
@@ -26,6 +27,20 @@ func (r *roundTrip) Do(req *http.Request) (*http.Response, error) {
 		Body:       io.NopCloser(bytes.NewBufferString(r.resp)),
 		Header:     make(http.Header),
 	}, nil
+}
+
+func TestResolveMapsAPsAndClassifies(t *testing.T) {
+	ok := &roundTrip{code: 200, resp: `{"status":"ok","lat":48.77,"lon":9.17,"accuracy":30}`}
+	c := &unwiredlabs.Client{Token: "pk.test", Endpoint: "eu1", HTTP: ok}
+	loc, err := c.Resolve(context.Background(), []wifiscan.AP{{BSSID: "aa:bb", Signal: -50}})
+	if err != nil || loc.Accuracy != 30 {
+		t.Fatalf("ok: loc=%+v err=%v", loc, err)
+	}
+	bad := &roundTrip{code: 200, resp: `{"status":"error","message":"Invalid token"}`}
+	c2 := &unwiredlabs.Client{Token: "pk.bad", Endpoint: "eu1", HTTP: bad}
+	if _, err := c2.Resolve(context.Background(), []wifiscan.AP{{BSSID: "aa:bb"}}); err == nil {
+		t.Fatal("want error on auth status")
+	}
 }
 
 func TestLookupWifiBuildsRequest(t *testing.T) {

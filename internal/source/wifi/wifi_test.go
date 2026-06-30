@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ckeller42/celloc/internal/geoloc"
 	"github.com/ckeller42/celloc/internal/source"
 	"github.com/ckeller42/celloc/internal/source/wifi"
-	"github.com/ckeller42/celloc/internal/unwiredlabs"
 	"github.com/ckeller42/celloc/internal/wifiscan"
 )
 
@@ -16,9 +16,9 @@ type scanFunc func(context.Context) ([]wifiscan.AP, error)
 
 func (f scanFunc) Scan(ctx context.Context) ([]wifiscan.AP, error) { return f(ctx) }
 
-type resFunc func(context.Context, []unwiredlabs.WifiAP) (unwiredlabs.Location, unwiredlabs.Status, error)
+type resFunc func(context.Context, []wifiscan.AP) (geoloc.Location, error)
 
-func (f resFunc) LookupWifi(ctx context.Context, a []unwiredlabs.WifiAP) (unwiredlabs.Location, unwiredlabs.Status, error) {
+func (f resFunc) Resolve(ctx context.Context, a []wifiscan.AP) (geoloc.Location, error) {
 	return f(ctx, a)
 }
 
@@ -26,17 +26,17 @@ func threeAPs(context.Context) ([]wifiscan.AP, error) {
 	return []wifiscan.AP{{BSSID: "a", Signal: -40}, {BSSID: "b", Signal: -50}, {BSSID: "c", Signal: -60}}, nil
 }
 
-func okRes(unwiredlabs.Location) resFunc {
-	return resFunc(func(context.Context, []unwiredlabs.WifiAP) (unwiredlabs.Location, unwiredlabs.Status, error) {
-		return unwiredlabs.Location{Lat: 48.77, Lon: 9.17, Accuracy: 30}, unwiredlabs.StatusOK, nil
+func okRes() resFunc {
+	return resFunc(func(context.Context, []wifiscan.AP) (geoloc.Location, error) {
+		return geoloc.Location{Lat: 48.77, Lon: 9.17, Accuracy: 30}, nil
 	})
 }
 
 func TestWifiFixHappyPath(t *testing.T) {
 	var gotN int
-	res := resFunc(func(_ context.Context, a []unwiredlabs.WifiAP) (unwiredlabs.Location, unwiredlabs.Status, error) {
+	res := resFunc(func(_ context.Context, a []wifiscan.AP) (geoloc.Location, error) {
 		gotN = len(a)
-		return unwiredlabs.Location{Lat: 48.77, Lon: 9.17, Accuracy: 30}, unwiredlabs.StatusOK, nil
+		return geoloc.Location{Lat: 48.77, Lon: 9.17, Accuracy: 30}, nil
 	})
 	s := wifi.New(scanFunc(threeAPs), res, 2, time.Minute)
 	f, err := s.Fix(context.Background())
@@ -52,7 +52,7 @@ func TestWifiTooFewAPsIsNoFix(t *testing.T) {
 	one := scanFunc(func(context.Context) ([]wifiscan.AP, error) {
 		return []wifiscan.AP{{BSSID: "a", Signal: -40}}, nil
 	})
-	s := wifi.New(one, okRes(unwiredlabs.Location{}), 2, time.Minute)
+	s := wifi.New(one, okRes(), 2, time.Minute)
 	if _, err := s.Fix(context.Background()); err == nil {
 		t.Fatal("want ErrNoFix when below min APs")
 	}
@@ -60,8 +60,8 @@ func TestWifiTooFewAPsIsNoFix(t *testing.T) {
 
 func TestWifiAuthFailureLogged(t *testing.T) {
 	var logs int
-	res := resFunc(func(context.Context, []unwiredlabs.WifiAP) (unwiredlabs.Location, unwiredlabs.Status, error) {
-		return unwiredlabs.Location{}, unwiredlabs.StatusAuth, nil
+	res := resFunc(func(context.Context, []wifiscan.AP) (geoloc.Location, error) {
+		return geoloc.Location{}, errors.New("unwiredlabs: auth")
 	})
 	s := wifi.New(scanFunc(threeAPs), res, 2, time.Minute)
 	s.Logf = func(string, ...any) { logs++ }
@@ -82,7 +82,7 @@ func TestWifiCachedThenStale(t *testing.T) {
 		}
 		return threeAPs(context.Background())
 	})
-	s := wifi.New(sc, okRes(unwiredlabs.Location{}), 2, 90*time.Second)
+	s := wifi.New(sc, okRes(), 2, 90*time.Second)
 	s.Now = func() time.Time { return now }
 	if _, err := s.Fix(context.Background()); err != nil {
 		t.Fatalf("first: %v", err)
@@ -99,7 +99,7 @@ func TestWifiCachedThenStale(t *testing.T) {
 }
 
 func TestWifiOutranksCell(t *testing.T) {
-	w := wifi.New(scanFunc(threeAPs), okRes(unwiredlabs.Location{}), 2, time.Minute)
+	w := wifi.New(scanFunc(threeAPs), okRes(), 2, time.Minute)
 	cell := stubSource{f: source.Fix{Mode: 2, Source: "cell", Lat: 1, Lon: 1}}
 	f, err := source.Select(context.Background(), w, cell)
 	if err != nil || f.Source != "wifi" {

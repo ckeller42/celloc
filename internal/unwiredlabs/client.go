@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/ckeller42/celloc/internal/geoloc"
+	"github.com/ckeller42/celloc/internal/wifiscan"
 )
 
 // Doer is the subset of *http.Client used here; injected for tests.
@@ -31,6 +34,23 @@ func (c *Client) baseURL() string {
 		ep = "eu1"
 	}
 	return "https://" + ep + ".unwiredlabs.com"
+}
+
+// Resolve implements the wifi.Resolver contract: map scanned APs to WifiAPs, look
+// them up, and translate a non-OK status into a classified error.
+func (c *Client) Resolve(ctx context.Context, aps []wifiscan.AP) (geoloc.Location, error) {
+	w := make([]WifiAP, 0, len(aps))
+	for _, ap := range aps {
+		w = append(w, WifiAP{BSSID: ap.BSSID, Signal: ap.Signal})
+	}
+	loc, st, err := c.LookupWifi(ctx, w)
+	if err != nil {
+		return geoloc.Location{}, fmt.Errorf("unwiredlabs: %w", err)
+	}
+	if st != StatusOK {
+		return geoloc.Location{}, fmt.Errorf("unwiredlabs: %s", st)
+	}
+	return geoloc.Location{Lat: loc.Lat, Lon: loc.Lon, Accuracy: loc.Accuracy}, nil
 }
 
 // LookupWifi resolves a position from the given APs.

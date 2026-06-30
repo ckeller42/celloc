@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ckeller42/celloc/internal/geoloc"
 	"github.com/ckeller42/celloc/internal/source"
-	"github.com/ckeller42/celloc/internal/unwiredlabs"
 	"github.com/ckeller42/celloc/internal/wifiscan"
 )
 
@@ -28,9 +28,11 @@ type Scanner interface {
 	Scan(ctx context.Context) ([]wifiscan.AP, error)
 }
 
-// Resolver resolves APs to a location (satisfied by *unwiredlabs.Client).
+// Resolver resolves scanned APs to a location (satisfied by *unwiredlabs.Client
+// and *google.Client). A nil error means the Location is usable; a non-nil error
+// is a classified provider failure (e.g. "unwiredlabs: auth").
 type Resolver interface {
-	LookupWifi(ctx context.Context, aps []unwiredlabs.WifiAP) (unwiredlabs.Location, unwiredlabs.Status, error)
+	Resolve(ctx context.Context, aps []wifiscan.AP) (geoloc.Location, error)
 }
 
 // Source is a WiFi-AP positioning source.
@@ -80,16 +82,9 @@ func (s *Source) resolve(ctx context.Context) (source.Fix, error) {
 	if len(aps) < s.MinAPs {
 		return source.Fix{}, errFewAPs
 	}
-	wlist := make([]unwiredlabs.WifiAP, 0, len(aps))
-	for _, ap := range aps {
-		wlist = append(wlist, unwiredlabs.WifiAP{BSSID: ap.BSSID, Signal: ap.Signal})
-	}
-	loc, st, err := s.Resolver.LookupWifi(ctx, wlist)
+	loc, err := s.Resolver.Resolve(ctx, aps)
 	if err != nil {
-		return source.Fix{}, fmt.Errorf("unwiredlabs lookup: %w", err)
-	}
-	if st != unwiredlabs.StatusOK {
-		return source.Fix{}, fmt.Errorf("unwiredlabs: %s", st)
+		return source.Fix{}, err
 	}
 	r := loc.Accuracy
 	return source.Fix{
