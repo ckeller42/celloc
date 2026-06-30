@@ -59,6 +59,13 @@ type CellFix struct {
 	Range int    `json:"range"`
 }
 
+// WifiFix is a NON-STANDARD extension object embedded in TPV for wifi fixes.
+// Standard gpsd clients ignore it; geoinflux reads it to tag the InfluxDB point
+// as source=wifi with the AP count.
+type WifiFix struct {
+	APCount int `json:"ap_count"`
+}
+
 // TPV is a time-position-velocity report. Optional numeric fields are pointers
 // so they are OMITTED (not zero) when unknown — never fake altitude/speed, and
 // never emit a 0,0 position for a no-fix.
@@ -73,6 +80,7 @@ type TPV struct {
 	EPY     *float64 `json:"epy,omitempty"`
 	EPH     *float64 `json:"eph,omitempty"`
 	CellFix *CellFix `json:"cellfix,omitempty"`
+	WifiFix *WifiFix `json:"wifix,omitempty"`
 }
 
 // SKY is emitted so cgps shows data; celloc has no satellites (not GNSS), so it
@@ -107,7 +115,10 @@ func TPVFromFix(f source.Fix, device string) TPV {
 	t.Time = f.Time.UTC().Format(timeFormat)
 	t.Lat, t.Lon = &lat, &lon
 	t.EPX, t.EPY, t.EPH = &epx, &epy, &eph
-	if f.MCC != 0 || f.CID != 0 {
+	switch {
+	case f.Source == "wifi":
+		t.WifiFix = &WifiFix{APCount: f.APCount}
+	case f.MCC != 0 || f.CID != 0:
 		t.CellFix = &CellFix{Radio: f.Radio, MCC: f.MCC, MNC: f.MNC, CID: f.CID, TAC: f.TAC, Range: int(f.EPH)}
 	}
 	return t
@@ -142,6 +153,10 @@ func FixFromTPV(t TPV) source.Fix {
 		f.Source = "cell"
 		f.Radio = t.CellFix.Radio
 		f.MCC, f.MNC, f.CID, f.TAC = t.CellFix.MCC, t.CellFix.MNC, t.CellFix.CID, t.CellFix.TAC
+	}
+	if t.WifiFix != nil {
+		f.Source = "wifi"
+		f.APCount = t.WifiFix.APCount
 	}
 	return f
 }

@@ -25,6 +25,14 @@ const Measurement = "geo"
 // the schema/tags/field-order match byte-for-byte, but the float text may differ
 // in trailing zeros (seed "48.10" vs "48.1"); InfluxDB parses both identically.
 func FixLine(f source.Fix) string {
+	if f.Source == "wifi" {
+		return Measurement +
+			",source=wifi" +
+			" lat=" + strconv.FormatFloat(f.Lat, 'f', -1, 64) +
+			",lon=" + strconv.FormatFloat(f.Lon, 'f', -1, 64) +
+			",range_m=" + strconv.Itoa(int(f.EPH)) + "i" +
+			",ap_count=" + strconv.Itoa(f.APCount) + "i"
+	}
 	lat := strconv.FormatFloat(f.Lat, 'f', -1, 64)
 	lon := strconv.FormatFloat(f.Lon, 'f', -1, 64)
 	return Measurement +

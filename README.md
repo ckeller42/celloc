@@ -7,21 +7,25 @@
 
 **Cell-tower geolocation for OpenWrt / GL-iNet routers, exposed over the gpsd protocol.**
 
-No GPS antenna? `celloc` reads your modem's serving cell (`AT+QENG`), resolves it to a
-coordinate via [OpenCelliD](https://opencellid.org), and serves the position on a real
-**gpsd** socket (TCP `2947`) so any gpsd client can consume it. A companion uploader pushes
-fixes to InfluxDB.
+No GPS antenna? `celloc` reads your modem's serving cell (`AT+QENG`) **and** nearby WiFi
+access points, resolves them to coordinates, and serves the position on a real **gpsd** socket
+(TCP `2947`) so any gpsd client can consume it. A companion uploader pushes fixes to InfluxDB.
+
+With a **Google Geolocation API key** (or Unwired Labs paid plan), the WiFi source resolves
+nearby access points to **tens of metres where APs are well-mapped** — far better than the
+single-cell ~1.5 km estimate. The cell source remains the fallback when WiFi cannot resolve.
 
 > ⚠️ **Accuracy:** a cell-tower fix is a coarse estimate — typically **hundreds of metres to
 > a few km** (the error radius is reported honestly as the gpsd `eph`). It is *not* a GPS fix.
-> `celloc` flags every fix as 2D (`mode=2`) with no altitude/speed so clients never mistake it
-> for GNSS.
+> WiFi accuracy improves this significantly but still needs a provider key and nearby mapped
+> APs. `celloc` flags every fix as 2D (`mode=2`) with no altitude/speed so clients never
+> mistake it for GNSS.
 
 ## Components
 
 | Binary | Runs on | Role |
 |---|---|---|
-| `geolocd` | the router | AT → OpenCelliD → position cache → gpsd server (`:2947`) |
+| `geolocd` | the router | AT + WiFi → position cache → gpsd server (`:2947`) |
 | `geoinflux` | the Pi / a host | gpsd client → InfluxDB uploader |
 
 ```text

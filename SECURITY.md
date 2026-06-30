@@ -15,6 +15,13 @@ Please report vulnerabilities privately via GitHub Security Advisories
 - Keep router/device config backups **out of version control**; they bundle these
   secrets. CI runs `gitleaks` to catch accidental commits.
 
+- **WiFi geolocation** sends the **BSSIDs (MAC addresses) of nearby networks**
+  to the configured provider (Google or Unwired Labs). APs whose SSID ends in
+  `_nomap` are excluded before the request is made (honoring the opt-out
+  convention). The provider keys (`google_key`, OpenCelliD `key`) live in uci
+  (`/etc/config/geolocd`, `0600`, read in-process, never in argv or `ps`).
+  `:2947` stays LAN-only as noted below.
+
 ## Network exposure
 
 - `geolocd` binds the gpsd socket on `:2947`. It must be reachable from the LAN

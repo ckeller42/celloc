@@ -27,3 +27,15 @@ func TestFixLineNegativeCoords(t *testing.T) {
 		t.Fatalf("\n got: %s\nwant: %s", got, want)
 	}
 }
+
+func TestFixLineWifi(t *testing.T) {
+	f := source.Fix{
+		Mode: 2, Lat: 48.7701, Lon: 9.1690, EPH: 35,
+		Source: "wifi", APCount: 7,
+	}
+	got := influx.FixLine(f)
+	want := "geo,source=wifi lat=48.7701,lon=9.169,range_m=35i,ap_count=7i"
+	if got != want {
+		t.Fatalf("FixLine(wifi)\n got=%q\nwant=%q", got, want)
+	}
+}

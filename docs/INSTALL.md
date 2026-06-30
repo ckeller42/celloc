@@ -36,6 +36,72 @@ gpspipe -w <router-ip>:2947     # expect a TPV with mode:2, lat/lon, eph (~1500m
 logread -e geolocd
 ```
 
+## WiFi geolocation
+
+WiFi geolocation is **on by default** (`wifi_enable '1'`). When it resolves, it
+**outranks** the cell fix; cell remains the fallback.
+
+### Default provider: Google
+
+`geolocd` uses the
+[Google Geolocation API](https://developers.google.com/maps/documentation/geolocation/overview)
+by default. It needs a **Google Geolocation API key**:
+
+1. Create a Google Cloud project and enable the **Geolocation API**.
+2. Enable billing (the free tier covers ~10,000 requests/month; the default
+   5-minute poll interval uses roughly 8,600 requests/month).
+3. Create an API key (restrict it to the Geolocation API).
+4. Set it on the router:
+
+```sh
+uci set geolocd.main.google_key='AIza...'
+uci commit geolocd && /etc/init.d/geolocd restart
+```
+
+### Alternative provider: Unwired Labs
+
+Switch with:
+
+```sh
+uci set geolocd.main.wifi_provider='unwiredlabs'
+uci commit geolocd && /etc/init.d/geolocd restart
+```
+
+This reuses the OpenCelliD `key` and `ula_endpoint` (e.g. `eu1`).
+
+> **Note:** Unwired Labs WiFi geolocation requires a **paid LocationAPI plan**.
+> The free OpenCelliD tier returns "WiFi access not enabled". Cell still works
+> on the free tier regardless.
+
+### WiFi options
+
+| Option | Default | Description |
+|---|---|---|
+| `wifi_enable` | `1` | Enable WiFi geolocation (`0` to disable) |
+| `wifi_provider` | `google` | Provider: `google` or `unwiredlabs` |
+| `google_key` | _(none)_ | Google Geolocation API key (required for Google) |
+| `wifi_iface` | `wlan0` | Space-separated list of WiFi interfaces to scan |
+| `wifi_interval` | `300` | Seconds between WiFi scans |
+| `wifi_min_aps` | `2` | Minimum visible APs required before querying provider |
+| `ula_endpoint` | `eu1` | Unwired Labs region (only used with `unwiredlabs`) |
+
+### Disable WiFi geolocation
+
+```sh
+uci set geolocd.main.wifi_enable='0'
+uci commit geolocd && /etc/init.d/geolocd restart
+```
+
+### Verify
+
+```sh
+gpspipe -w <router-ip>:2947
+```
+
+When WiFi resolves, expect a `TPV mode=2` with a `wifix` object and an `eph`
+far below the ~1.5 km cell radius (tens of metres where APs are well-mapped).
+If WiFi is not resolving, `logread -e geolocd` will show the reason.
+
 ## Pi uploader (`geoinflux`)
 
 `geoinflux` is a gpsd client that reads fixes from `geolocd` on the router and
