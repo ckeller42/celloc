@@ -1,0 +1,31 @@
+docs/INSTALL.md
+  s_b8af11b0ef3dca::t_9e102063130cc7 39-104
+SECURITY.md
+  s_b8af11b0ef3dca::t_ec796bdc0178fb 18-24
+docs/superpowers/plans/2026-06-29-wifi-geolocation.md
+  s_b8af11b0ef3dca::t_2880b775215525 295,305
+packaging/openwrt/files/geolocd.config
+  s_b8af11b0ef3dca::t_44cdb25c406778 8-16
+docs/ARCHITECTURE.md
+  s_b8af11b0ef3dca::t_b9383fe76c55b0 29-33
+  s_b8af11b0ef3dca::t_a65d1b0551a351 43-47
+README.md
+  s_b8af11b0ef3dca::t_ae3afb8a437f61 10-16,20-22
+  s_b8af11b0ef3dca::t_f44ed48e4e5559 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "312c3c5e483c2ef5dfcc6cff443cc806e278b05a",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
