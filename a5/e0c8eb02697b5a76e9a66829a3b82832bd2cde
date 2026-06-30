@@ -1,0 +1,29 @@
+internal/geoloc/geoloc.go
+  s_b8af11b0ef3dca::t_f2975c6dcffec6 1-12
+internal/source/wifi/wifi_test.go
+  s_b8af11b0ef3dca::t_6af0bce66dd664 9,19,21,29-31,37,39,55,63-64,85,102
+internal/unwiredlabs/client.go
+  s_b8af11b0ef3dca::t_e513b2cbdbd225 39-55
+  s_b8af11b0ef3dca::t_318c5dbdea8e24 10-12
+internal/source/wifi/wifi.go
+  s_b8af11b0ef3dca::t_cd853ba26c9d77 15,31-33,35,85,87
+internal/unwiredlabs/client_test.go
+  s_b8af11b0ef3dca::t_7ee423879aa69d 12
+  s_b8af11b0ef3dca::t_e98acab2364b8b 32-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "a5e0c8eb02697b5a76e9a66829a3b82832bd2cde",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
