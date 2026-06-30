@@ -1,7 +1,8 @@
 // Package wifi implements source.Source via WiFi-AP geolocation: scan nearby
-// access points, resolve them with the Unwired Labs LocationAPI, and serve the
-// result. It keeps the last good fix until StaleAfter so a single failed scan or
-// lookup doesn't blank the position. Mirrors internal/source/cell.
+// access points, resolve them via a configured Resolver (e.g. Google or Unwired
+// Labs), and serve the result. It keeps the last good fix until StaleAfter so a
+// single failed scan or lookup doesn't blank the position. Mirrors
+// internal/source/cell.
 package wifi
 
 import (
