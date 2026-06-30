@@ -33,6 +33,14 @@ func TestParseScan(t *testing.T) {
 	}
 }
 
+func TestParseScanMissingSignalIsWeak(t *testing.T) {
+	in := "BSS 00:11:22:33:44:55(on wlan0)\n\tSSID: nosig\n"
+	aps := wifiscan.ParseScan(in)
+	if len(aps) != 1 || aps[0].Signal != -127 {
+		t.Fatalf("missing signal should be weak sentinel, got %#v", aps)
+	}
+}
+
 func TestParseScanEmptyAndGarbage(t *testing.T) {
 	if aps := wifiscan.ParseScan(""); len(aps) != 0 {
 		t.Fatalf("empty: got %v", aps)

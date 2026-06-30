@@ -1,5 +1,10 @@
 # Design: WiFi-AP geolocation source for celloc
 
+> **Amendment (2026-06-30):** Implemented with a provider-pluggable resolver — Google
+> Geolocation API is the default provider (free under ~10k req/mo, WiFi included),
+> Unwired Labs is optional via uci `wifi_provider`. Decision 2 (combined wifi+cell
+> request) was realized as daemon-level fallback (wifi-over-cell provider) instead.
+
 **Status:** approved (2026-06-29) · **Target:** new `geolocd` positioning source + `geoinflux`/schema support
 
 ## Problem

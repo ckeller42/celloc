@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+// noSignal marks an AP whose signal was absent or unparsable; it sorts weakest in
+// dedup and tells a provider the level is effectively unknown.
+const noSignal = -127
+
 // AP is one scanned access point. Signal is dBm (negative; closer to 0 = stronger).
 type AP struct {
 	BSSID  string
@@ -35,7 +39,7 @@ func ParseScan(out string) []AP {
 		switch {
 		case strings.HasPrefix(line, "BSS "):
 			flush()
-			cur = AP{BSSID: parseBSSID(line)}
+			cur = AP{BSSID: parseBSSID(line), Signal: noSignal}
 			have = true
 		case strings.HasPrefix(trimmed, "signal:"):
 			cur.Signal = parseSignal(trimmed)
@@ -69,7 +73,7 @@ func parseSignal(trimmed string) int {
 	}
 	f, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		return 0
+		return noSignal
 	}
 	return int(f)
 }

@@ -47,41 +47,52 @@ func run() error {
 	if err != nil {
 		log.Printf("geolocd: uci load failed (%v); using defaults", err)
 	}
-	if cfg.Key == "" {
-		return errNoKey
-	}
-
-	staleAfter := 2 * cfg.PollInterval
-	if staleAfter < 2*time.Minute {
-		staleAfter = 2 * time.Minute
-	}
-	src := cell.New(
-		atrun.New(cfg.Runner, cfg.Bus),
-		&opencellid.Client{Key: cfg.Key, HTTP: &http.Client{Timeout: 15 * time.Second}},
-		cfg.Radio, staleAfter,
-	)
 
 	// Per-source current fixes, refreshed by independent poll loops and read by
 	// the gpsd server. WiFi (when enabled) outranks cell.
 	var cellCur, wifiCur atomic.Value
 	cellCur.Store(source.Fix{Mode: 0})
 	wifiCur.Store(source.Fix{Mode: 0})
-	go pollLoop(ctx, src, cfg.PollInterval, &cellCur)
 
+	// Cell source: only when an OpenCelliD key is configured.
+	cellStarted := false
+	if cfg.Key != "" {
+		staleAfter := 2 * cfg.PollInterval
+		if staleAfter < 2*time.Minute {
+			staleAfter = 2 * time.Minute
+		}
+		src := cell.New(
+			atrun.New(cfg.Runner, cfg.Bus),
+			&opencellid.Client{Key: cfg.Key, HTTP: &http.Client{Timeout: 15 * time.Second}},
+			cfg.Radio, staleAfter,
+		)
+		go pollLoop(ctx, src, cfg.PollInterval, &cellCur)
+		cellStarted = true
+	} else {
+		log.Printf("geolocd: cell source disabled (no OpenCelliD key)")
+	}
+
+	// WiFi source: provider selected by uci wifi_provider.
+	wifiStarted := false
 	if cfg.WifiEnable {
 		var resolver wifi.Resolver
 		var provKey string
 		switch cfg.WifiProvider {
+		case "", "google":
+			resolver = &google.Client{Key: cfg.GoogleKey, HTTP: &http.Client{Timeout: 15 * time.Second}}
+			provKey = cfg.GoogleKey
 		case "unwiredlabs":
 			resolver = &unwiredlabs.Client{Token: cfg.Key, Endpoint: cfg.ULAEndpoint, HTTP: &http.Client{Timeout: 15 * time.Second}}
 			provKey = cfg.Key
-		default: // "google"
-			resolver = &google.Client{Key: cfg.GoogleKey, HTTP: &http.Client{Timeout: 15 * time.Second}}
-			provKey = cfg.GoogleKey
+		default:
+			log.Printf("geolocd: wifi source disabled (unknown provider %q)", cfg.WifiProvider)
 		}
-		if provKey == "" {
+		switch {
+		case resolver == nil:
+			// unknown provider, already logged
+		case provKey == "":
 			log.Printf("geolocd: wifi source disabled (provider %q has no key)", cfg.WifiProvider)
-		} else {
+		default:
 			staleWifi := 2 * cfg.WifiInterval
 			if staleWifi < 2*time.Minute {
 				staleWifi = 2 * time.Minute
@@ -90,7 +101,12 @@ func run() error {
 			log.Printf("geolocd: wifi source enabled (provider=%s iface=%q interval=%s min_aps=%d)",
 				cfg.WifiProvider, cfg.WifiIface, cfg.WifiInterval, cfg.WifiMinAPs)
 			go pollLoop(ctx, wsrc, cfg.WifiInterval, &wifiCur)
+			wifiStarted = true
 		}
+	}
+
+	if !cellStarted && !wifiStarted {
+		return errNoSource
 	}
 
 	srv := &gpsd.Server{
@@ -107,7 +123,7 @@ func run() error {
 	return srv.ListenAndServe(ctx, cfg.Listen)
 }
 
-var errNoKey = errInvalidConfig("no OpenCelliD key — set it with: uci set geolocd.main.key='pk...'; uci commit geolocd")
+var errNoSource = errInvalidConfig("no source configured — set an OpenCelliD key (uci geolocd.main.key) and/or a wifi provider key (google_key)")
 
 type errInvalidConfig string
 

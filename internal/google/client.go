@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,7 +61,13 @@ func (c *Client) Resolve(ctx context.Context, aps []wifiscan.AP) (geoloc.Locatio
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return geoloc.Location{}, fmt.Errorf("google: %w", err)
+		// *url.Error.Error() includes the full URL (with the API key in the query);
+		// unwrap to its Op/Err so the key never reaches logs.
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			return geoloc.Location{}, fmt.Errorf("google: %s: %w", ue.Op, ue.Err)
+		}
+		return geoloc.Location{}, fmt.Errorf("google: request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	respBody, err := io.ReadAll(resp.Body)

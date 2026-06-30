@@ -55,6 +55,20 @@ func TestScannerMergeDedupKeepsStrongest(t *testing.T) {
 	}
 }
 
+func TestScannerDedupPrefersRealSignalOverMissing(t *testing.T) {
+	exec := func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		if args[1] == "wlan0" {
+			return []byte("BSS aa:aa:aa:aa:aa:aa(on wlan0)\n\tSSID: x\n"), nil // no signal -> -127
+		}
+		return []byte("BSS AA:AA:AA:AA:AA:AA(on wlan1)\n\tsignal: -55.00 dBm\n\tSSID: x\n"), nil
+	}
+	s := wifiscan.Scanner{Ifaces: []string{"wlan0", "wlan1"}, Exec: exec}
+	aps, err := s.Scan(context.Background())
+	if err != nil || len(aps) != 1 || aps[0].Signal != -55 {
+		t.Fatalf("dedup should keep the real -55 reading, got %#v err=%v", aps, err)
+	}
+}
+
 func TestScannerErrorWhenAllIfacesFailAndNoAPs(t *testing.T) {
 	exec := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
 		return nil, errors.New("iw: No such device")
