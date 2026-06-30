@@ -1,0 +1,26 @@
+internal/uciconf/config.go
+  s_b8af11b0ef3dca::t_732b4715e96de9 109-114
+  s_b8af11b0ef3dca::t_8e29ee78035c69 25-26
+  s_b8af11b0ef3dca::t_7480eea9ac8a14 42
+internal/uciconf/config_test.go
+  s_b8af11b0ef3dca::t_a6b1bfd682e4a4 100-115
+cmd/geolocd/main.go
+  s_b8af11b0ef3dca::t_bcc847110c4c80 19
+  s_b8af11b0ef3dca::t_a3fd89db2d6b34 71-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "2789d73dcddc9e629c661dde04f31b25387525ed",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
