@@ -1,0 +1,34 @@
+internal/wifiscan/scanner_test.go
+  s_b8af11b0ef3dca::t_c11fe2b22c63dd 58-71
+docs/superpowers/specs/2026-06-29-wifi-geolocation-design.md
+  s_b8af11b0ef3dca::t_34cf19b0f9fe41 3-7
+cmd/geolocd/main.go
+  s_b8af11b0ef3dca::t_9e8332aaad0d4f 57-76,81-83,87-88,90-93,95,104,108-110
+  s_b8af11b0ef3dca::t_3d08eeaba5c313 126
+  s_b8af11b0ef3dca::t_dc993231a4da4c 111
+internal/wifiscan/wifiscan_test.go
+  s_b8af11b0ef3dca::t_d82ff179c44d4d 36-43
+internal/wifiscan/wifiscan.go
+  s_b8af11b0ef3dca::t_b97c06fc4a3a65 76
+  s_b8af11b0ef3dca::t_6cb3f498a3a85b 11-14
+  s_b8af11b0ef3dca::t_93a484ed36f543 42
+internal/google/client.go
+  s_b8af11b0ef3dca::t_3c2b35e0fa3539 7
+  s_b8af11b0ef3dca::t_ef090d2786a0a3 64-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "96a368d27b88ff4fdbd68cc9549e669b5f3b963d",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
