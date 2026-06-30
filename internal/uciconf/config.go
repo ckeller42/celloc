@@ -22,6 +22,8 @@ type Config struct {
 	WifiInterval time.Duration // WiFi scan/resolve cadence
 	WifiMinAPs   int           // minimum APs before querying LocationAPI
 	ULAEndpoint  string        // Unwired Labs region subdomain (e.g. "eu1")
+	WifiProvider string        // WiFi resolver: "google" (default) | "unwiredlabs"
+	GoogleKey    string        // Google Geolocation API key (secret; never logged)
 }
 
 // Defaults returns the baseline config; ParseUciShow overlays any set options.
@@ -37,6 +39,7 @@ func Defaults() Config {
 		WifiInterval: 300 * time.Second,
 		WifiMinAPs:   2,
 		ULAEndpoint:  "eu1",
+		WifiProvider: "google",
 	}
 }
 
@@ -103,6 +106,12 @@ func ParseUciShow(out string) Config {
 			if val != "" {
 				cfg.ULAEndpoint = val
 			}
+		case "wifi_provider":
+			if val != "" {
+				cfg.WifiProvider = val
+			}
+		case "google_key":
+			cfg.GoogleKey = val
 		}
 	}
 	return cfg

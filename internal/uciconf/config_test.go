@@ -97,6 +97,22 @@ func TestWifiDefaults(t *testing.T) {
 	}
 }
 
+func TestParseUciShowProvider(t *testing.T) {
+	in := `geolocd.main.wifi_provider='unwiredlabs'
+geolocd.main.google_key='g.abc123'`
+	cfg := uciconf.ParseUciShow(in)
+	if cfg.WifiProvider != "unwiredlabs" || cfg.GoogleKey != "g.abc123" {
+		t.Fatalf("bad cfg: %+v", cfg)
+	}
+}
+
+func TestProviderDefaults(t *testing.T) {
+	d := uciconf.Defaults()
+	if d.WifiProvider != "google" || d.GoogleKey != "" {
+		t.Fatalf("bad provider defaults: %+v", d)
+	}
+}
+
 func TestWifiEnableParsing(t *testing.T) {
 	cases := map[string]bool{
 		"geolocd.main.wifi_enable='1'":     true,

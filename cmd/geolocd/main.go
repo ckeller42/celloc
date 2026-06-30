@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ckeller42/celloc/internal/atrun"
+	"github.com/ckeller42/celloc/internal/google"
 	"github.com/ckeller42/celloc/internal/gpsd"
 	"github.com/ckeller42/celloc/internal/opencellid"
 	"github.com/ckeller42/celloc/internal/source"
@@ -67,19 +68,29 @@ func run() error {
 	wifiCur.Store(source.Fix{Mode: 0})
 	go pollLoop(ctx, src, cfg.PollInterval, &cellCur)
 
-	if cfg.WifiEnable && cfg.Key != "" {
-		staleWifi := 2 * cfg.WifiInterval
-		if staleWifi < 2*time.Minute {
-			staleWifi = 2 * time.Minute
+	if cfg.WifiEnable {
+		var resolver wifi.Resolver
+		var provKey string
+		switch cfg.WifiProvider {
+		case "unwiredlabs":
+			resolver = &unwiredlabs.Client{Token: cfg.Key, Endpoint: cfg.ULAEndpoint, HTTP: &http.Client{Timeout: 15 * time.Second}}
+			provKey = cfg.Key
+		default: // "google"
+			resolver = &google.Client{Key: cfg.GoogleKey, HTTP: &http.Client{Timeout: 15 * time.Second}}
+			provKey = cfg.GoogleKey
 		}
-		wsrc := wifi.New(
-			wifiscan.NewScanner(strings.Fields(cfg.WifiIface)),
-			&unwiredlabs.Client{Token: cfg.Key, Endpoint: cfg.ULAEndpoint, HTTP: &http.Client{Timeout: 15 * time.Second}},
-			cfg.WifiMinAPs, staleWifi,
-		)
-		log.Printf("geolocd: wifi source enabled (iface=%q interval=%s min_aps=%d endpoint=%s)",
-			cfg.WifiIface, cfg.WifiInterval, cfg.WifiMinAPs, cfg.ULAEndpoint)
-		go pollLoop(ctx, wsrc, cfg.WifiInterval, &wifiCur)
+		if provKey == "" {
+			log.Printf("geolocd: wifi source disabled (provider %q has no key)", cfg.WifiProvider)
+		} else {
+			staleWifi := 2 * cfg.WifiInterval
+			if staleWifi < 2*time.Minute {
+				staleWifi = 2 * time.Minute
+			}
+			wsrc := wifi.New(wifiscan.NewScanner(strings.Fields(cfg.WifiIface)), resolver, cfg.WifiMinAPs, staleWifi)
+			log.Printf("geolocd: wifi source enabled (provider=%s iface=%q interval=%s min_aps=%d)",
+				cfg.WifiProvider, cfg.WifiIface, cfg.WifiInterval, cfg.WifiMinAPs)
+			go pollLoop(ctx, wsrc, cfg.WifiInterval, &wifiCur)
+		}
 	}
 
 	srv := &gpsd.Server{
