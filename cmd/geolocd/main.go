@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -19,7 +20,10 @@ import (
 	"github.com/ckeller42/celloc/internal/opencellid"
 	"github.com/ckeller42/celloc/internal/source"
 	"github.com/ckeller42/celloc/internal/source/cell"
+	"github.com/ckeller42/celloc/internal/source/wifi"
 	"github.com/ckeller42/celloc/internal/uciconf"
+	"github.com/ckeller42/celloc/internal/unwiredlabs"
+	"github.com/ckeller42/celloc/internal/wifiscan"
 )
 
 // Version is overridable via -ldflags "-X main.Version=v1.2.3".
@@ -56,13 +60,35 @@ func run() error {
 		cfg.Radio, staleAfter,
 	)
 
-	// Shared current fix, refreshed by the poll loop, read by the gpsd server.
-	var cur atomic.Value
-	cur.Store(source.Fix{Mode: 0})
-	go pollLoop(ctx, src, cfg.PollInterval, &cur)
+	// Per-source current fixes, refreshed by independent poll loops and read by
+	// the gpsd server. WiFi (when enabled) outranks cell.
+	var cellCur, wifiCur atomic.Value
+	cellCur.Store(source.Fix{Mode: 0})
+	wifiCur.Store(source.Fix{Mode: 0})
+	go pollLoop(ctx, src, cfg.PollInterval, &cellCur)
+
+	if cfg.WifiEnable && cfg.Key != "" {
+		staleWifi := 2 * cfg.WifiInterval
+		if staleWifi < 2*time.Minute {
+			staleWifi = 2 * time.Minute
+		}
+		wsrc := wifi.New(
+			wifiscan.NewScanner(strings.Fields(cfg.WifiIface)),
+			&unwiredlabs.Client{Token: cfg.Key, Endpoint: cfg.ULAEndpoint, HTTP: &http.Client{Timeout: 15 * time.Second}},
+			cfg.WifiMinAPs, staleWifi,
+		)
+		log.Printf("geolocd: wifi source enabled (iface=%q interval=%s min_aps=%d endpoint=%s)",
+			cfg.WifiIface, cfg.WifiInterval, cfg.WifiMinAPs, cfg.ULAEndpoint)
+		go pollLoop(ctx, wsrc, cfg.WifiInterval, &wifiCur)
+	}
 
 	srv := &gpsd.Server{
-		Provider: func() source.Fix { return cur.Load().(source.Fix) },
+		Provider: func() source.Fix {
+			if w := wifiCur.Load().(source.Fix); w.HasFix() {
+				return w
+			}
+			return cellCur.Load().(source.Fix)
+		},
 		Interval: *streamEvery,
 		Release:  "celloc-" + Version,
 	}
