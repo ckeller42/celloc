@@ -1,0 +1,23 @@
+internal/google/client.go
+  s_b8af11b0ef3dca::t_45c59519eea2a0 33
+internal/google/client_test.go
+  s_b8af11b0ef3dca::t_e97c79da14a9c7 59-61
+internal/google/parse_test.go
+  s_b8af11b0ef3dca::t_fa55c43b8620d2 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "2e3f11361f74536513b00097b429b82f33675c3b",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
