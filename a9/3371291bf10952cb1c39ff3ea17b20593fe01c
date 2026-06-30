@@ -1,0 +1,20 @@
+cmd/geolocd/main.go
+  s_b8af11b0ef3dca::t_52a36a48899aaf 13,23,25-26
+  s_b8af11b0ef3dca::t_db5a238715b19d 63-83,86-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "a93371291bf10952cb1c39ff3ea17b20593fe01c",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
