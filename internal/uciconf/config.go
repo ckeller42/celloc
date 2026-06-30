@@ -81,7 +81,12 @@ func ParseUciShow(out string) Config {
 				cfg.Runner = val
 			}
 		case "wifi_enable":
-			cfg.WifiEnable = val == "1" || strings.EqualFold(val, "true")
+			switch {
+			case val == "1" || strings.EqualFold(val, "true"):
+				cfg.WifiEnable = true
+			case val == "0" || strings.EqualFold(val, "false"):
+				cfg.WifiEnable = false
+			}
 		case "wifi_iface":
 			if val != "" {
 				cfg.WifiIface = val

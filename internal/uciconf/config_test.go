@@ -96,3 +96,19 @@ func TestWifiDefaults(t *testing.T) {
 		t.Fatalf("bad defaults: %+v", d)
 	}
 }
+
+func TestWifiEnableParsing(t *testing.T) {
+	cases := map[string]bool{
+		"geolocd.main.wifi_enable='1'":     true,
+		"geolocd.main.wifi_enable='true'":  true,
+		"geolocd.main.wifi_enable='0'":     false,
+		"geolocd.main.wifi_enable='false'": false,
+		"geolocd.main.wifi_enable='yes'":   true, // unrecognized -> keep default (true)
+		"":                                 true, // unset -> default
+	}
+	for in, want := range cases {
+		if got := uciconf.ParseUciShow(in).WifiEnable; got != want {
+			t.Errorf("ParseUciShow(%q).WifiEnable = %v, want %v", in, got, want)
+		}
+	}
+}
