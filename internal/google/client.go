@@ -30,7 +30,7 @@ type Client struct {
 
 type wifiAP struct {
 	MAC    string `json:"macAddress"`
-	Signal int    `json:"signalStrength,omitempty"`
+	Signal int    `json:"signalStrength"`
 }
 
 type request struct {

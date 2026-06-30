@@ -56,6 +56,9 @@ func TestResolveBuildsRequest(t *testing.T) {
 	if sent.ConsiderIP || len(sent.Wifi) != 2 || sent.Wifi[0].MAC != "00:11:22:33:44:55" || sent.Wifi[0].Signal != -50 {
 		t.Fatalf("body=%s", rt.gotBody)
 	}
+	if !bytes.Contains(rt.gotBody, []byte(`"considerIp":false`)) {
+		t.Fatalf("considerIp must be present and false: %s", rt.gotBody)
+	}
 }
 
 func TestResolveClassifiesError(t *testing.T) {

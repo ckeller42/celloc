@@ -19,6 +19,7 @@ func TestParseResponse(t *testing.T) {
 		{"200 no location", 200, `{}`, true, 0, 0},
 		{"not found", 404, `{"error":{"code":404,"errors":[{"reason":"notFound"}],"message":"Not Found"}}`, true, 0, 0},
 		{"key invalid", 400, `{"error":{"code":400,"errors":[{"reason":"keyInvalid"}],"message":"bad key"}}`, true, 0, 0},
+		{"key invalid 403", 403, `{"error":{"code":403,"errors":[{"reason":"keyInvalid"}],"message":"bad key"}}`, true, 0, 0},
 		{"daily limit", 403, `{"error":{"code":403,"errors":[{"reason":"dailyLimitExceeded"}],"message":"quota"}}`, true, 0, 0},
 		{"rate 429", 429, `{"error":{"code":429,"message":"slow down"}}`, true, 0, 0},
 		{"server", 503, ``, true, 0, 0},
