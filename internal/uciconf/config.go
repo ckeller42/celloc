@@ -16,6 +16,12 @@ type Config struct {
 	Bus          string        // gl_modem bus (e.g. "cpu")
 	Radio        string        // geolocation radio (v1: "LTE")
 	Runner       string        // AT runner: "glmodem" | "ubus"
+
+	WifiEnable   bool          // enable the WiFi-AP source
+	WifiIface    string        // scan interface(s), space-separated
+	WifiInterval time.Duration // WiFi scan/resolve cadence
+	WifiMinAPs   int           // minimum APs before querying LocationAPI
+	ULAEndpoint  string        // Unwired Labs region subdomain (e.g. "eu1")
 }
 
 // Defaults returns the baseline config; ParseUciShow overlays any set options.
@@ -26,6 +32,11 @@ func Defaults() Config {
 		Bus:          "cpu",
 		Radio:        "LTE",
 		Runner:       "glmodem",
+		WifiEnable:   true,
+		WifiIface:    "wlan0",
+		WifiInterval: 300 * time.Second,
+		WifiMinAPs:   2,
+		ULAEndpoint:  "eu1",
 	}
 }
 
@@ -68,6 +79,24 @@ func ParseUciShow(out string) Config {
 		case "runner":
 			if val != "" {
 				cfg.Runner = val
+			}
+		case "wifi_enable":
+			cfg.WifiEnable = val == "1" || strings.EqualFold(val, "true")
+		case "wifi_iface":
+			if val != "" {
+				cfg.WifiIface = val
+			}
+		case "wifi_interval":
+			if n, err := strconv.Atoi(val); err == nil && n > 0 {
+				cfg.WifiInterval = time.Duration(n) * time.Second
+			}
+		case "wifi_min_aps":
+			if n, err := strconv.Atoi(val); err == nil && n > 0 {
+				cfg.WifiMinAPs = n
+			}
+		case "ula_endpoint":
+			if val != "" {
+				cfg.ULAEndpoint = val
 			}
 		}
 	}

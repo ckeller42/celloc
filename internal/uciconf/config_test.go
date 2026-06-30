@@ -70,3 +70,29 @@ unrelated line`
 		t.Fatalf("bad poll should keep default, got %v", cfg.PollInterval)
 	}
 }
+
+func TestParseUciShowWifi(t *testing.T) {
+	in := `geolocd.main.wifi_enable='0'
+geolocd.main.wifi_iface='wlan0 wlan1'
+geolocd.main.wifi_interval='120'
+geolocd.main.wifi_min_aps='4'
+geolocd.main.ula_endpoint='us1'`
+	cfg := uciconf.ParseUciShow(in)
+	if cfg.WifiEnable {
+		t.Fatal("wifi_enable=0 should disable")
+	}
+	if cfg.WifiIface != "wlan0 wlan1" || cfg.WifiMinAPs != 4 || cfg.ULAEndpoint != "us1" {
+		t.Fatalf("bad cfg: %+v", cfg)
+	}
+	if cfg.WifiInterval != 120*time.Second {
+		t.Fatalf("interval=%v", cfg.WifiInterval)
+	}
+}
+
+func TestWifiDefaults(t *testing.T) {
+	d := uciconf.Defaults()
+	if !d.WifiEnable || d.WifiIface != "wlan0" || d.WifiMinAPs != 2 ||
+		d.ULAEndpoint != "eu1" || d.WifiInterval != 300*time.Second {
+		t.Fatalf("bad defaults: %+v", d)
+	}
+}
