@@ -1,0 +1,21 @@
+internal/source/wifi/wifi_test.go
+  s_b8af11b0ef3dca::t_e7d484cd0e28e8 1-113
+internal/source/wifi/wifi.go
+  s_b8af11b0ef3dca::t_18ed24f7f6b0c4 1-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "8867c00d16b4e9d6d516011405942359902fe9e9",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
