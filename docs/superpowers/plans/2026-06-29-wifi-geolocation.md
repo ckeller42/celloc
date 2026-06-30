@@ -292,7 +292,7 @@ func parseBSSID(line string) string {
 	return strings.ToLower(rest)
 }
 
-// parseSignal reads `-85.00 dBm` (after the `signal:` prefix) as a rounded int.
+// parseSignal reads `-85.00 dBm` (after the `signal:` prefix) as a truncated int.
 func parseSignal(trimmed string) int {
 	v := strings.TrimSpace(strings.TrimPrefix(trimmed, "signal:"))
 	if i := strings.IndexByte(v, ' '); i >= 0 {
@@ -302,10 +302,7 @@ func parseSignal(trimmed string) int {
 	if err != nil {
 		return 0
 	}
-	if f < 0 {
-		return int(f - 0.5)
-	}
-	return int(f + 0.5)
+	return int(f)
 }
 ```
 

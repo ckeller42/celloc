@@ -26,6 +26,11 @@ injected interfaces.
 | `internal/gpsd` | pure reports + I/O `Server`/`Client` | gpsd TPV/SKY/VERSION/POLL |
 | `internal/source` | pure | `Source` interface + `Fix`; priority `Select` |
 | `internal/source/cell` | I/O (compose) | runner+qeng+resolver, last-good cache + staleness |
+| `internal/geoloc` | pure | neutral `Location{Lat,Lon,Accuracy}` shared by resolvers |
+| `internal/wifiscan` | pure parse + I/O scanner | `iw dev <if> scan` → `[]AP` |
+| `internal/unwiredlabs` | pure `ParseResponse` + I/O `Client` | LocationAPI `process.php` |
+| `internal/google` | pure `ParseResponse` + I/O `Client` | Google `geolocate` |
+| `internal/source/wifi` | I/O (compose) | scan + resolve + cache, behind a neutral `Resolver` |
 | `internal/atrun` | I/O (`Exec`) | run AT via `gl_modem` / `ubus` |
 | `internal/influx` | pure `FixLine` + I/O `Writer` (`Doer`) | line protocol + write |
 | `internal/uciconf` | pure parse + I/O load | read `/etc/config/geolocd` via uci |
@@ -35,9 +40,11 @@ injected interfaces.
 ## Pluggable sources (GNSS-ready)
 
 `source.Source` is an interface; `source.Select(ctx, sources...)` returns the
-first source with a fix. Cell-tower is the only v1 source, but a GNSS source
-(reading `AT+QGPS` once an antenna exists) can be added and listed *before* cell
-so it outranks it — no change to the daemon or server.
+first source with a fix. The WiFi source outranks cell via
+`source.Select(wifi, cell)`, and its resolver is provider-pluggable (`google`
+default, `unwiredlabs` optional) selected by uci `wifi_provider`. A GNSS source
+(reading `AT+QGPS` once an antenna exists) can also be added and listed before
+cell or WiFi — no change to the daemon or server.
 
 ## Honest gpsd semantics
 
