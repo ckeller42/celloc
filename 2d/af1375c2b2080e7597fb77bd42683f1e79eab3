@@ -1,0 +1,66 @@
+internal/source/cell/servingcell.go
+  s_b8af11b0ef3dca::t_f1b372c4551b98 1-45
+internal/source/wifi/wifi_test.go
+  s_b8af11b0ef3dca::t_3b0a9869cecb65 120-160
+  s_b8af11b0ef3dca::t_0d69a76985d8a8 73
+  s_b8af11b0ef3dca::t_62e9b1d17b349a 19,21-32,40,47
+docs/ARCHITECTURE.md
+  s_b8af11b0ef3dca::t_c5181ffcd18a98 7-14
+  s_b8af11b0ef3dca::t_2159c21b4f6f82 29
+  s_b8af11b0ef3dca::t_1ae9614418674e 44-49
+  s_b8af11b0ef3dca::t_586485eb1a22c0 53-58
+  s_b8af11b0ef3dca::t_7dfc464d20abc9 62-64
+  s_b8af11b0ef3dca::t_9b62067e1a9871 26
+internal/source/cell/servingcell_test.go
+  s_b8af11b0ef3dca::t_98c52f9711c6f8 1-43
+README.md
+  s_b8af11b0ef3dca::t_d759dcae0f0d6c 33-36
+  s_b8af11b0ef3dca::t_3085739708b5b9 8
+  s_b8af11b0ef3dca::t_408e6d64abc54d 51,53
+  s_b8af11b0ef3dca::t_ec0bb9b3c139e8 14-17
+internal/google/client.go
+  s_b8af11b0ef3dca::t_2b6454cf29def5 38-45,47-50,53-63,68-78
+  s_b8af11b0ef3dca::t_4bb1c05a61a5e7 12
+cmd/geolocd/main.go
+  s_b8af11b0ef3dca::t_0324798ad0a330 1-5
+  s_b8af11b0ef3dca::t_709c5c1d44465b 51-55,57-58,60-71,73,77-86,88,92,96
+docs/INSTALL.md
+  s_b8af11b0ef3dca::t_a87dd57429ac70 18,20-23,26,32-33,38-39,46-48
+internal/source/wifi/wifi.go
+  s_b8af11b0ef3dca::t_796f2c6419cdcd 113,116-125
+  s_b8af11b0ef3dca::t_52a160e56c3174 42
+  s_b8af11b0ef3dca::t_2153bc1a5c7be0 32-37
+  s_b8af11b0ef3dca::t_c4edc6dc58f755 86-98,100-104,107-108
+  s_b8af11b0ef3dca::t_aef125c4cd803d 49
+internal/unwiredlabs/client_test.go
+  s_b8af11b0ef3dca::t_5fe147ee1d28ce 36,42,47-63
+  s_b8af11b0ef3dca::t_50481fc93493be 11
+  s_b8af11b0ef3dca::t_40822c8eada471 64-65
+internal/geoloc/geoloc.go
+  s_b8af11b0ef3dca::t_dedde900ebebbb 13-24
+internal/unwiredlabs/client.go
+  s_b8af11b0ef3dca::t_2578911c792e8b 39-42,47-53
+packaging/openwrt/files/geolocd.config
+  s_b8af11b0ef3dca::t_9e1cd2c3549609 2-6,11-16
+internal/google/client_test.go
+  s_b8af11b0ef3dca::t_02668d073b0fca 68,72-99
+  s_b8af11b0ef3dca::t_d4d9346af1e607 12
+  s_b8af11b0ef3dca::t_f2a51a1b061342 40
+  s_b8af11b0ef3dca::t_c7d87db9ff3e78 100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "2daf1375c2b2080e7597fb77bd42683f1e79eab3",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
