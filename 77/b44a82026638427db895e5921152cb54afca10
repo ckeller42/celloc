@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_b8af11b0ef3dca::t_d50bff90844ea2 80,83-90
+packaging/openwrt/build-ipk.sh
+  s_b8af11b0ef3dca::t_59ff776f238858 2-8,52-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "77b44a82026638427db895e5921152cb54afca10",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
