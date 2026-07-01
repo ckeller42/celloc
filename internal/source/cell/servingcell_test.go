@@ -22,6 +22,9 @@ func TestServingCellReaderDecodesLTE(t *testing.T) {
 	if c.Radio != "LTE" || c.MCC != 262 || c.MNC != 3 || c.CID != 0x1684B3E || c.TAC != 0xE8E5 {
 		t.Fatalf("bad cell: %+v", c)
 	}
+	if c.Signal != -83 { // RSRP from the trailing field
+		t.Fatalf("RSRP not captured: %+v", c)
+	}
 }
 
 func TestServingCellReaderNoCellOnError(t *testing.T) {

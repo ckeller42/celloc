@@ -61,6 +61,25 @@ func TestResolveBlendsCell(t *testing.T) {
 	if len(sent.Wifi) != 1 {
 		t.Fatalf("wifi should still be present: %s", rt.gotBody)
 	}
+	if sent.Radio != "lte" {
+		t.Fatalf("radio=%q want lte", sent.Radio)
+	}
+}
+
+func TestResolveRadioMapsNR(t *testing.T) {
+	rt := &roundTrip{code: 200, resp: `{"status":"ok","lat":48.77,"lon":9.17,"accuracy":50}`}
+	c := &unwiredlabs.Client{Token: "pk.test", Endpoint: "eu1", HTTP: rt}
+	cell := &geoloc.CellTower{Radio: "NR5G-SA", MCC: 262, MNC: 3, CID: 1, TAC: 2}
+	if _, err := c.Resolve(context.Background(), nil, cell); err != nil {
+		t.Fatal(err)
+	}
+	var sent unwiredlabs.Request
+	if err := json.Unmarshal(rt.gotBody, &sent); err != nil {
+		t.Fatal(err)
+	}
+	if sent.Radio != "nr" {
+		t.Fatalf("radio=%q want nr", sent.Radio)
+	}
 }
 
 func TestLookupWifiBuildsRequest(t *testing.T) {

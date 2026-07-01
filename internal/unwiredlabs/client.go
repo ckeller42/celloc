@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/ckeller42/celloc/internal/geoloc"
 	"github.com/ckeller42/celloc/internal/wifiscan"
@@ -36,6 +37,14 @@ func (c *Client) baseURL() string {
 	return "https://" + ep + ".unwiredlabs.com"
 }
 
+// radioParam maps a modem access-technology string to an Unwired Labs radio value.
+func radioParam(radio string) string {
+	if strings.Contains(strings.ToUpper(radio), "NR") {
+		return "nr"
+	}
+	return "lte"
+}
+
 // Resolve implements the wifi.Resolver contract: map scanned APs to WifiAPs
 // (blending the serving cell when non-nil), look them up, and translate a non-OK
 // status into a classified error.
@@ -46,7 +55,7 @@ func (c *Client) Resolve(ctx context.Context, aps []wifiscan.AP, cell *geoloc.Ce
 	}
 	req := Request{Wifi: w, Address: 0}
 	if cell != nil {
-		req.Radio = "lte"
+		req.Radio = radioParam(cell.Radio)
 		req.MCC, req.MNC = cell.MCC, cell.MNC
 		req.Cells = []CellTower{{LAC: cell.TAC, CID: cell.CID, MCC: cell.MCC, MNC: cell.MNC, Signal: cell.Signal}}
 	}

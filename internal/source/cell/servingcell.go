@@ -36,10 +36,11 @@ func (r *ServingCellReader) ServingCell(ctx context.Context) (*geoloc.CellTower,
 		return nil, false
 	}
 	return &geoloc.CellTower{
-		Radio: string(c.Radio),
-		MCC:   c.MCC,
-		MNC:   c.MNC,
-		CID:   c.CID,
-		TAC:   c.TAC,
+		Radio:  string(c.Radio),
+		MCC:    c.MCC,
+		MNC:    c.MNC,
+		CID:    c.CID,
+		TAC:    c.TAC,
+		Signal: c.Signal,
 	}, true
 }
