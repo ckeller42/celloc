@@ -1,0 +1,30 @@
+internal/source/cell/servingcell.go
+  s_b8af11b0ef3dca::t_51ade4468b0b5f 39-44
+internal/qeng/qeng.go
+  s_b8af11b0ef3dca::t_462bb96a902503 33-40
+  s_b8af11b0ef3dca::t_a33d1ac1a254b8 108-112
+internal/source/cell/servingcell_test.go
+  s_b8af11b0ef3dca::t_46cc23d5e1c3f7 25-27
+internal/unwiredlabs/client.go
+  s_b8af11b0ef3dca::t_e200f331354d21 58
+  s_b8af11b0ef3dca::t_ba02874db437c2 40-47
+  s_b8af11b0ef3dca::t_bceafd38c05479 10
+internal/unwiredlabs/client_test.go
+  s_b8af11b0ef3dca::t_4cc85d01aba63e 64-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "8a28e5c854f6e8f4d29b85791f417572070b121e",
+  "prompts": {},
+  "sessions": {
+    "s_b8af11b0ef3dca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee094925-3066-415a-b76b-76f7dd5013c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
