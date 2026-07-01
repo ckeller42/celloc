@@ -5,15 +5,16 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/ckeller42/celloc)](https://goreportcard.com/report/github.com/ckeller42/celloc)
 [![License: MIT](https://img.shields.io/github/license/ckeller42/celloc)](LICENSE)
 
-**Cell-tower geolocation for OpenWrt / GL-iNet routers, exposed over the gpsd protocol.**
+**WiFi + cell-tower geolocation for OpenWrt / GL-iNet routers, exposed over the gpsd protocol.**
 
 No GPS antenna? `celloc` reads your modem's serving cell (`AT+QENG`) **and** nearby WiFi
 access points, resolves them to coordinates, and serves the position on a real **gpsd** socket
 (TCP `2947`) so any gpsd client can consume it. A companion uploader pushes fixes to InfluxDB.
 
-With a **Google Geolocation API key** (or Unwired Labs paid plan), the WiFi source resolves
-nearby access points to **tens of metres where APs are well-mapped** — far better than the
-single-cell ~1.5 km estimate. The cell source remains the fallback when WiFi cannot resolve.
+With a **Google Geolocation API key** (or Unwired Labs paid plan), `geolocd` sends the WiFi
+APs **and** the serving cell in one request; the provider fuses them to **tens of metres where
+APs are well-mapped** — far better than the single-cell ~1.5 km estimate. When WiFi is too
+sparse, the serving cell still anchors the fix on its own.
 
 > ⚠️ **Accuracy:** a cell-tower fix is a coarse estimate — typically **hundreds of metres to
 > a few km** (the error radius is reported honestly as the gpsd `eph`). It is *not* a GPS fix.
@@ -29,10 +30,10 @@ single-cell ~1.5 km estimate. The cell source remains the fallback when WiFi can
 | `geoinflux` | the Pi / a host | gpsd client → InfluxDB uploader |
 
 ```text
-modem (AT+QENG) ─▶ geolocd ─▶ OpenCelliD ─▶ position ─▶ gpsd :2947
-                                                            │
-                                       gpsd clients ◀───────┤
-                                       geoinflux ◀──────────┴─▶ InfluxDB ─▶ Grafana
+WiFi scan + modem (AT+QENG) ─▶ geolocd ─▶ provider (Google) ─▶ position ─▶ gpsd :2947
+                                                                              │
+                                         gpsd clients ◀─────────────────────┤
+                                         geoinflux ◀────────────────────────┴─▶ InfluxDB ─▶ Grafana
 ```
 
 ## Status
@@ -47,9 +48,9 @@ implemented and tested, and the OpenWrt `.ipk` builds in CI. Docs:
 ```sh
 # on the router — install from a release (or build the ipk yourself, see INSTALL.md)
 opkg install https://github.com/ckeller42/celloc/releases/latest/download/geolocd_aarch64_cortex-a53.ipk
-uci set geolocd.main.key='pk.your_opencellid_key'
+uci set geolocd.main.google_key='AIza...your_google_geolocation_key'
 uci commit geolocd && /etc/init.d/geolocd restart
-gpspipe -w <router-ip>:2947     # verify a TPV with lat/lon
+gpspipe -w <router-ip>:2947     # verify a TPV with lat/lon (wifix + tight eph)
 ```
 
 Then run `geoinflux` on the Pi to push fixes to InfluxDB — see [INSTALL.md](docs/INSTALL.md).

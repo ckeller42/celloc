@@ -36,14 +36,21 @@ func (c *Client) baseURL() string {
 	return "https://" + ep + ".unwiredlabs.com"
 }
 
-// Resolve implements the wifi.Resolver contract: map scanned APs to WifiAPs, look
-// them up, and translate a non-OK status into a classified error.
-func (c *Client) Resolve(ctx context.Context, aps []wifiscan.AP) (geoloc.Location, error) {
+// Resolve implements the wifi.Resolver contract: map scanned APs to WifiAPs
+// (blending the serving cell when non-nil), look them up, and translate a non-OK
+// status into a classified error.
+func (c *Client) Resolve(ctx context.Context, aps []wifiscan.AP, cell *geoloc.CellTower) (geoloc.Location, error) {
 	w := make([]WifiAP, 0, len(aps))
 	for _, ap := range aps {
 		w = append(w, WifiAP{BSSID: ap.BSSID, Signal: ap.Signal})
 	}
-	loc, st, err := c.LookupWifi(ctx, w)
+	req := Request{Wifi: w, Address: 0}
+	if cell != nil {
+		req.Radio = "lte"
+		req.MCC, req.MNC = cell.MCC, cell.MNC
+		req.Cells = []CellTower{{LAC: cell.TAC, CID: cell.CID, MCC: cell.MCC, MNC: cell.MNC, Signal: cell.Signal}}
+	}
+	loc, st, err := c.do(ctx, req)
 	if err != nil {
 		return geoloc.Location{}, fmt.Errorf("unwiredlabs: %w", err)
 	}

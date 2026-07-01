@@ -16,10 +16,20 @@ type scanFunc func(context.Context) ([]wifiscan.AP, error)
 
 func (f scanFunc) Scan(ctx context.Context) ([]wifiscan.AP, error) { return f(ctx) }
 
-type resFunc func(context.Context, []wifiscan.AP) (geoloc.Location, error)
+type resFunc func(context.Context, []wifiscan.AP, *geoloc.CellTower) (geoloc.Location, error)
 
-func (f resFunc) Resolve(ctx context.Context, a []wifiscan.AP) (geoloc.Location, error) {
-	return f(ctx, a)
+func (f resFunc) Resolve(ctx context.Context, a []wifiscan.AP, c *geoloc.CellTower) (geoloc.Location, error) {
+	return f(ctx, a, c)
+}
+
+type cellFunc func(context.Context) (*geoloc.CellTower, bool)
+
+func (f cellFunc) ServingCell(ctx context.Context) (*geoloc.CellTower, bool) { return f(ctx) }
+
+func lteCell() cellFunc {
+	return cellFunc(func(context.Context) (*geoloc.CellTower, bool) {
+		return &geoloc.CellTower{Radio: "LTE", MCC: 262, MNC: 3, CID: 23612222, TAC: 59621}, true
+	})
 }
 
 func threeAPs(context.Context) ([]wifiscan.AP, error) {
@@ -27,14 +37,14 @@ func threeAPs(context.Context) ([]wifiscan.AP, error) {
 }
 
 func okRes() resFunc {
-	return resFunc(func(context.Context, []wifiscan.AP) (geoloc.Location, error) {
+	return resFunc(func(context.Context, []wifiscan.AP, *geoloc.CellTower) (geoloc.Location, error) {
 		return geoloc.Location{Lat: 48.77, Lon: 9.17, Accuracy: 30}, nil
 	})
 }
 
 func TestWifiFixHappyPath(t *testing.T) {
 	var gotN int
-	res := resFunc(func(_ context.Context, a []wifiscan.AP) (geoloc.Location, error) {
+	res := resFunc(func(_ context.Context, a []wifiscan.AP, _ *geoloc.CellTower) (geoloc.Location, error) {
 		gotN = len(a)
 		return geoloc.Location{Lat: 48.77, Lon: 9.17, Accuracy: 30}, nil
 	})
@@ -60,7 +70,7 @@ func TestWifiTooFewAPsIsNoFix(t *testing.T) {
 
 func TestWifiAuthFailureLogged(t *testing.T) {
 	var logs int
-	res := resFunc(func(context.Context, []wifiscan.AP) (geoloc.Location, error) {
+	res := resFunc(func(context.Context, []wifiscan.AP, *geoloc.CellTower) (geoloc.Location, error) {
 		return geoloc.Location{}, errors.New("unwiredlabs: auth")
 	})
 	s := wifi.New(scanFunc(threeAPs), res, 2, time.Minute)
@@ -104,6 +114,47 @@ func TestWifiOutranksCell(t *testing.T) {
 	f, err := source.Select(context.Background(), w, cell)
 	if err != nil || f.Source != "wifi" {
 		t.Fatalf("want wifi selected, got %+v err=%v", f, err)
+	}
+}
+
+func TestWifiBlendsCell(t *testing.T) {
+	var gotCell *geoloc.CellTower
+	res := resFunc(func(_ context.Context, _ []wifiscan.AP, c *geoloc.CellTower) (geoloc.Location, error) {
+		gotCell = c
+		return geoloc.Location{Lat: 48.77, Lon: 9.17, Accuracy: 20}, nil
+	})
+	s := wifi.New(scanFunc(threeAPs), res, 2, time.Minute)
+	s.Cell = lteCell()
+	f, err := s.Fix(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Source != "wifi" || f.APCount != 3 {
+		t.Fatalf("wifi-dominant fix expected: %+v", f)
+	}
+	if gotCell == nil || gotCell.CID != 23612222 {
+		t.Fatalf("serving cell not blended into request: %+v", gotCell)
+	}
+}
+
+func TestWifiCellOnlyWhenTooFewAPs(t *testing.T) {
+	one := scanFunc(func(context.Context) ([]wifiscan.AP, error) {
+		return []wifiscan.AP{{BSSID: "a", Signal: -40}}, nil // below MinAPs
+	})
+	res := resFunc(func(_ context.Context, aps []wifiscan.AP, c *geoloc.CellTower) (geoloc.Location, error) {
+		if len(aps) != 0 || c == nil {
+			return geoloc.Location{}, errors.New("expected cell-only request")
+		}
+		return geoloc.Location{Lat: 48.7, Lon: 9.1, Accuracy: 1400}, nil
+	})
+	s := wifi.New(one, res, 2, time.Minute)
+	s.Cell = lteCell()
+	f, err := s.Fix(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Source != "cell" || f.APCount != 0 || f.CID != 23612222 || f.EPH != 1400 {
+		t.Fatalf("cell-only fix expected with cell IDs: %+v", f)
 	}
 }
 

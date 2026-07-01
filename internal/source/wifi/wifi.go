@@ -29,17 +29,24 @@ type Scanner interface {
 	Scan(ctx context.Context) ([]wifiscan.AP, error)
 }
 
+// CellReader returns the current serving cell to blend into the resolver request
+// (satisfied by *cell.ServingCellReader). ok is false when no cell is available.
+type CellReader interface {
+	ServingCell(ctx context.Context) (*geoloc.CellTower, bool)
+}
+
 // Resolver resolves scanned APs to a location (satisfied by *unwiredlabs.Client
 // and *google.Client). A nil error means the Location is usable; a non-nil error
 // is a classified provider failure (e.g. "unwiredlabs: auth").
 type Resolver interface {
-	Resolve(ctx context.Context, aps []wifiscan.AP) (geoloc.Location, error)
+	Resolve(ctx context.Context, aps []wifiscan.AP, cell *geoloc.CellTower) (geoloc.Location, error)
 }
 
 // Source is a WiFi-AP positioning source.
 type Source struct {
 	Scanner    Scanner
 	Resolver   Resolver
+	Cell       CellReader // optional: blends the serving cell into the request
 	MinAPs     int
 	StaleAfter time.Duration
 	Now        func() time.Time
@@ -76,23 +83,46 @@ func (s *Source) Fix(ctx context.Context) (source.Fix, error) {
 }
 
 func (s *Source) resolve(ctx context.Context) (source.Fix, error) {
-	aps, err := s.Scanner.Scan(ctx)
-	if err != nil {
-		return source.Fix{}, fmt.Errorf("wifi scan: %w", err)
+	aps, scanErr := s.Scanner.Scan(ctx)
+	haveAPs := scanErr == nil && len(aps) >= s.MinAPs
+	if !haveAPs {
+		aps = nil // never send a below-threshold AP set
 	}
-	if len(aps) < s.MinAPs {
+
+	// Blend the serving cell when available; it anchors the fix (or resolves it
+	// alone when WiFi is too sparse).
+	var cell *geoloc.CellTower
+	if s.Cell != nil {
+		if c, ok := s.Cell.ServingCell(ctx); ok {
+			cell = c
+		}
+	}
+
+	if !haveAPs && cell == nil {
+		if scanErr != nil {
+			return source.Fix{}, fmt.Errorf("wifi scan: %w", scanErr)
+		}
 		return source.Fix{}, errFewAPs
 	}
-	loc, err := s.Resolver.Resolve(ctx, aps)
+
+	loc, err := s.Resolver.Resolve(ctx, aps, cell)
 	if err != nil {
 		return source.Fix{}, err
 	}
 	r := loc.Accuracy
-	return source.Fix{
+	f := source.Fix{
 		Time: s.now(), Mode: 2,
 		Lat: loc.Lat, Lon: loc.Lon, EPH: r, EPX: r, EPY: r,
-		Source: "wifi", APCount: len(aps),
-	}, nil
+	}
+	// Tag by the dominant signal: WiFi when APs were sent, else the cell (and
+	// carry the cell IDs so the TPV/InfluxDB line stays honest).
+	if haveAPs {
+		f.Source, f.APCount = "wifi", len(aps)
+	} else {
+		f.Source = "cell"
+		f.Radio, f.MCC, f.MNC, f.CID, f.TAC = cell.Radio, cell.MCC, cell.MNC, cell.CID, cell.TAC
+	}
+	return f, nil
 }
 
 func (s *Source) logResolve(err error) {

@@ -15,31 +15,37 @@ ssh root@<router> 'opkg install /tmp/geolocd_*.ipk'
 The package installs the binary, a procd service (enabled + started), and a default
 `/etc/config/geolocd` (preserved across package upgrades as a conffile).
 
-### 2. Set your OpenCelliD key
+### 2. Set your provider key
 
-Get a free key at <https://opencellid.org>, then:
+`geolocd` resolves position through a geolocation **provider** — **Google by
+default** — sending the WiFi scan and the modem's serving cell together. Create a
+**Google Geolocation API key** (full steps in [WiFi geolocation](#wifi-geolocation)
+below), then:
 
 ```sh
-uci set geolocd.main.key='pk.your_key_here'
+uci set geolocd.main.google_key='AIza...'
 uci commit geolocd
 /etc/init.d/geolocd restart
 ```
 
 The key lives only in `/etc/config/geolocd` (and is never passed on the command
-line, so it won't show up in `ps`).
+line, so it won't show up in `ps`). OpenCelliD is no longer used by default; it is
+only relevant for the optional Unwired Labs provider below.
 
 ### 3. Verify
 
 ```sh
-gpspipe -w <router-ip>:2947     # expect a TPV with mode:2, lat/lon, eph (~1500m)
+gpspipe -w <router-ip>:2947     # expect a TPV with mode:2, lat/lon, a wifix object,
+                                # and a tight eph (tens of m where APs are mapped)
 # or:
 logread -e geolocd
 ```
 
 ## WiFi geolocation
 
-WiFi geolocation is **on by default** (`wifi_enable '1'`). When it resolves, it
-**outranks** the cell fix; cell remains the fallback.
+WiFi geolocation is **on by default** (`wifi_enable '1'`). Each cycle `geolocd`
+scans nearby APs and reads the serving cell, then sends **both** to the provider in
+one request — WiFi drives the fine fix and the cell anchors it when APs are sparse.
 
 ### Default provider: Google
 
