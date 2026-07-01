@@ -10,3 +10,15 @@ type Location struct {
 	Lon      float64
 	Accuracy float64
 }
+
+// CellTower is a serving cell passed to a provider to anchor/blend a fix. Radio
+// is the access technology from the modem (e.g. "LTE", "NR5G-NSA"); Signal is
+// RSRP in dBm, 0 when unknown.
+type CellTower struct {
+	Radio  string
+	MCC    int
+	MNC    int
+	CID    int64
+	TAC    int
+	Signal int
+}

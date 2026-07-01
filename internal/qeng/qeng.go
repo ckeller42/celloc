@@ -30,13 +30,14 @@ const (
 
 // Cell is one decoded serving-cell line.
 type Cell struct {
-	Radio Radio
-	MCC   int
-	MNC   int
-	CID   int64 // 0 when absent (e.g. NR5G-NSA). NR NCI can exceed int32.
-	TAC   int   // 0 when absent
-	HasID bool  // true when both CID and TAC were decoded (geolocatable)
-	Raw   string
+	Radio  Radio
+	MCC    int
+	MNC    int
+	CID    int64 // 0 when absent (e.g. NR5G-NSA). NR NCI can exceed int32.
+	TAC    int   // 0 when absent
+	Signal int   // RSRP in dBm; 0 when absent/unparsable
+	HasID  bool  // true when both CID and TAC were decoded (geolocatable)
+	Raw    string
 }
 
 // ErrNoCells is returned when the output contains no decodable +QENG line.
@@ -103,6 +104,11 @@ func decode(f []string, raw string) (Cell, bool) {
 		c := Cell{Radio: RadioLTE, MCC: mcc, MNC: mnc, Raw: raw}
 		if e3 == nil && e4 == nil {
 			c.CID, c.TAC, c.HasID = cid, int(tac), true
+		}
+		if len(f) > 11 {
+			if s, err := atoiDec(f[11]); err == nil {
+				c.Signal = s // RSRP (dBm)
+			}
 		}
 		return c, true
 	case RadioNR5GNSA:

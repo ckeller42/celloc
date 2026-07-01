@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ckeller42/celloc/internal/geoloc"
 	"github.com/ckeller42/celloc/internal/google"
 	"github.com/ckeller42/celloc/internal/wifiscan"
 )
@@ -36,7 +37,7 @@ func TestResolveBuildsRequest(t *testing.T) {
 	loc, err := c.Resolve(context.Background(), []wifiscan.AP{
 		{BSSID: "00:11:22:33:44:55", Signal: -50},
 		{BSSID: "aa:bb:cc:dd:ee:ff", Signal: -60},
-	})
+	}, nil)
 	if err != nil || loc.Accuracy != 25 {
 		t.Fatalf("loc=%+v err=%v", loc, err)
 	}
@@ -64,7 +65,36 @@ func TestResolveBuildsRequest(t *testing.T) {
 func TestResolveClassifiesError(t *testing.T) {
 	rt := &roundTrip{code: 404, resp: `{"error":{"code":404,"errors":[{"reason":"notFound"}]}}`}
 	c := &google.Client{Key: "g.key", HTTP: rt}
-	if _, err := c.Resolve(context.Background(), []wifiscan.AP{{BSSID: "x"}}); err == nil {
+	if _, err := c.Resolve(context.Background(), []wifiscan.AP{{BSSID: "x"}}, nil); err == nil {
 		t.Fatal("want error on 404")
+	}
+}
+
+func TestResolveBlendsCellTower(t *testing.T) {
+	rt := &roundTrip{code: 200, resp: `{"location":{"lat":48.77,"lng":9.17},"accuracy":18}`}
+	c := &google.Client{Key: "g.key", HTTP: rt}
+	cell := &geoloc.CellTower{Radio: "LTE", MCC: 262, MNC: 3, CID: 23612222, TAC: 59621, Signal: -84}
+	if _, err := c.Resolve(context.Background(), []wifiscan.AP{{BSSID: "aa:bb", Signal: -50}}, cell); err != nil {
+		t.Fatal(err)
+	}
+	var sent struct {
+		RadioType string `json:"radioType"`
+		Cells     []struct {
+			CellID int64 `json:"cellId"`
+			LAC    int   `json:"locationAreaCode"`
+			MCC    int   `json:"mobileCountryCode"`
+			MNC    int   `json:"mobileNetworkCode"`
+			Signal int   `json:"signalStrength"`
+		} `json:"cellTowers"`
+	}
+	if err := json.Unmarshal(rt.gotBody, &sent); err != nil {
+		t.Fatal(err)
+	}
+	if sent.RadioType != "lte" || len(sent.Cells) != 1 {
+		t.Fatalf("radioType/cellTowers wrong: %s", rt.gotBody)
+	}
+	g := sent.Cells[0]
+	if g.CellID != 23612222 || g.LAC != 59621 || g.MCC != 262 || g.MNC != 3 || g.Signal != -84 {
+		t.Fatalf("cell tower fields wrong: %s", rt.gotBody)
 	}
 }
