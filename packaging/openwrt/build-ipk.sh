@@ -1,8 +1,11 @@
 #!/bin/sh
-# Build a geolocd .ipk from a prebuilt static binary using the canonical
-# opkg-build tool (vendored alongside this script). Requires GNU binutils `ar`
-# and bash (both present in CI and on a typical Linux dev box; macOS BSD `ar`
-# is not supported — build releases in CI).
+# Build a geolocd .ipk from a prebuilt static binary.
+#
+# An OpenWrt .ipk is a *gzip-compressed tar* of three members —
+# ./debian-binary, ./control.tar.gz, ./data.tar.gz — NOT a Debian `ar` archive.
+# (opkg on the router rejects the ar form with "Malformed package file".)
+# Requires GNU tar + gzip (present in CI and on a typical Linux dev box; macOS
+# BSD tar is not supported — build releases in CI).
 #
 # Usage: build-ipk.sh <geolocd-binary> <version> [arch] [outdir]
 #   arch defaults to aarch64_cortex-a53 (GL-E5800); outdir defaults to ./dist
@@ -45,7 +48,14 @@ EOF
 chmod 0755 "$pkg/CONTROL/postinst"
 
 mkdir -p "$OUTDIR"
-# opkg-build cd's internally, so it needs an absolute destination.
 OUTDIR=$(CDPATH= cd -- "$OUTDIR" && pwd)
-bash "$here/opkg-build" -o root -g root "$pkg" "$OUTDIR" >&2
-echo "$OUTDIR/geolocd_${VERSION}_${ARCH}.ipk"
+out="$OUTDIR/geolocd_${VERSION}_${ARCH}.ipk"
+
+# --- assemble the OpenWrt ipk (gzip-tar of the three members) ---
+TAR="tar --numeric-owner --owner=0 --group=0"
+ipk="$work/ipk"; mkdir -p "$ipk"
+printf '2.0\n' > "$ipk/debian-binary"
+( cd "$pkg/CONTROL" && $TAR -czf "$ipk/control.tar.gz" . )
+( cd "$pkg"         && $TAR -czf "$ipk/data.tar.gz" ./usr ./etc )
+( cd "$ipk"         && $TAR -czf "$out" ./debian-binary ./control.tar.gz ./data.tar.gz )
+echo "$out"

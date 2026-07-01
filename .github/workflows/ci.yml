@@ -77,10 +77,16 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/geolocd ./cmd/geolocd
           file dist/geolocd | grep -q "statically linked"
-      - name: Build .ipk (canonical opkg-build)
+      - name: Build .ipk (OpenWrt gzip-tar format)
         run: |
           sh packaging/openwrt/build-ipk.sh dist/geolocd 0.0.0-ci aarch64_cortex-a53 dist
-          ar t dist/*.ipk | tr '\n' ' ' | grep -q "debian-binary control.tar.gz data.tar.gz"
+          # An OpenWrt ipk is a gzip-compressed tar (NOT a Debian ar archive).
+          file dist/*.ipk | grep -q "gzip compressed"
+          members=$(tar tzf dist/*.ipk)
+          echo "ipk members:"; echo "$members"
+          for m in debian-binary control.tar.gz data.tar.gz; do
+            echo "$members" | grep -q "$m" || { echo "::error::ipk missing $m"; exit 1; }
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: geolocd-ipk
