@@ -37,6 +37,16 @@ func TestResolveMapsAPsAndClassifies(t *testing.T) {
 	if err != nil || loc.Accuracy != 30 {
 		t.Fatalf("ok: loc=%+v err=%v", loc, err)
 	}
+	if ok.gotURL != "https://eu1.unwiredlabs.com/v2/process.php" {
+		t.Fatalf("url=%q", ok.gotURL)
+	}
+	var sentOK unwiredlabs.Request
+	if err := json.Unmarshal(ok.gotBody, &sentOK); err != nil {
+		t.Fatal(err)
+	}
+	if sentOK.Token != "pk.test" || len(sentOK.Wifi) != 1 || sentOK.Wifi[0].BSSID != "aa:bb" || sentOK.Wifi[0].Signal != -50 {
+		t.Fatalf("body=%s", ok.gotBody)
+	}
 	bad := &roundTrip{code: 200, resp: `{"status":"error","message":"Invalid token"}`}
 	c2 := &unwiredlabs.Client{Token: "pk.bad", Endpoint: "eu1", HTTP: bad}
 	if _, err := c2.Resolve(context.Background(), []wifiscan.AP{{BSSID: "aa:bb"}}, nil); err == nil {
@@ -79,26 +89,5 @@ func TestResolveRadioMapsNR(t *testing.T) {
 	}
 	if sent.Radio != "nr" {
 		t.Fatalf("radio=%q want nr", sent.Radio)
-	}
-}
-
-func TestLookupWifiBuildsRequest(t *testing.T) {
-	rt := &roundTrip{code: 200, resp: `{"status":"ok","lat":48.77,"lon":9.17,"accuracy":30}`}
-	c := &unwiredlabs.Client{Token: "pk.test", Endpoint: "eu1", HTTP: rt}
-	loc, st, err := c.LookupWifi(context.Background(), []unwiredlabs.WifiAP{
-		{BSSID: "00:11:22:33:44:55", Signal: -50},
-	})
-	if err != nil || st != unwiredlabs.StatusOK || loc.Accuracy != 30 {
-		t.Fatalf("loc=%+v st=%v err=%v", loc, st, err)
-	}
-	if rt.gotURL != "https://eu1.unwiredlabs.com/v2/process.php" {
-		t.Fatalf("url=%q", rt.gotURL)
-	}
-	var sent unwiredlabs.Request
-	if err := json.Unmarshal(rt.gotBody, &sent); err != nil {
-		t.Fatal(err)
-	}
-	if sent.Token != "pk.test" || len(sent.Wifi) != 1 || sent.Wifi[0].BSSID != "00:11:22:33:44:55" {
-		t.Fatalf("body=%s", rt.gotBody)
 	}
 }

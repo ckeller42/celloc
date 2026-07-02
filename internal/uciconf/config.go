@@ -10,12 +10,10 @@ import (
 
 // Config is the daemon's runtime configuration (uci section geolocd.main).
 type Config struct {
-	Key          string        // OpenCelliD API key (secret; never logged)
-	PollInterval time.Duration // between AT polls
-	Listen       string        // gpsd socket bind address
-	Bus          string        // gl_modem bus (e.g. "cpu")
-	Radio        string        // geolocation radio (v1: "LTE")
-	Runner       string        // AT runner: "glmodem" | "ubus"
+	Key    string // OpenCelliD API key (secret; never logged)
+	Listen string // gpsd socket bind address
+	Bus    string // gl_modem bus (e.g. "cpu")
+	Runner string // AT runner: "glmodem" | "ubus"
 
 	WifiEnable   bool          // enable the WiFi-AP source
 	WifiIface    string        // scan interface(s), space-separated
@@ -29,10 +27,8 @@ type Config struct {
 // Defaults returns the baseline config; ParseUciShow overlays any set options.
 func Defaults() Config {
 	return Config{
-		PollInterval: 60 * time.Second,
 		Listen:       ":2947",
 		Bus:          "cpu",
-		Radio:        "LTE",
 		Runner:       "glmodem",
 		WifiEnable:   true,
 		WifiIface:    "wlan0",
@@ -63,10 +59,6 @@ func ParseUciShow(out string) Config {
 		switch key[dot+1:] {
 		case "key":
 			cfg.Key = val
-		case "poll_interval":
-			if n, err := strconv.Atoi(val); err == nil && n > 0 {
-				cfg.PollInterval = time.Duration(n) * time.Second
-			}
 		case "listen":
 			if val != "" {
 				cfg.Listen = val
@@ -74,10 +66,6 @@ func ParseUciShow(out string) Config {
 		case "bus":
 			if val != "" {
 				cfg.Bus = val
-			}
-		case "radio":
-			if val != "" {
-				cfg.Radio = val
 			}
 		case "runner":
 			if val != "" {

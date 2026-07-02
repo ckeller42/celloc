@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ckeller42/celloc/internal/geoloc"
-	"github.com/ckeller42/celloc/internal/source"
 	"github.com/ckeller42/celloc/internal/source/wifi"
 	"github.com/ckeller42/celloc/internal/wifiscan"
 )
@@ -108,15 +107,6 @@ func TestWifiCachedThenStale(t *testing.T) {
 	}
 }
 
-func TestWifiOutranksCell(t *testing.T) {
-	w := wifi.New(scanFunc(threeAPs), okRes(), 2, time.Minute)
-	cell := stubSource{f: source.Fix{Mode: 2, Source: "cell", Lat: 1, Lon: 1}}
-	f, err := source.Select(context.Background(), w, cell)
-	if err != nil || f.Source != "wifi" {
-		t.Fatalf("want wifi selected, got %+v err=%v", f, err)
-	}
-}
-
 func TestWifiBlendsCell(t *testing.T) {
 	var gotCell *geoloc.CellTower
 	res := resFunc(func(_ context.Context, _ []wifiscan.AP, c *geoloc.CellTower) (geoloc.Location, error) {
@@ -157,8 +147,3 @@ func TestWifiCellOnlyWhenTooFewAPs(t *testing.T) {
 		t.Fatalf("cell-only fix expected with cell IDs: %+v", f)
 	}
 }
-
-type stubSource struct{ f source.Fix }
-
-func (s stubSource) Name() string                            { return "cell" }
-func (s stubSource) Fix(context.Context) (source.Fix, error) { return s.f, nil }

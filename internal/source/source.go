@@ -45,19 +45,3 @@ type Source interface {
 	// Fix returns the current best fix, or ErrNoFix when none is available.
 	Fix(ctx context.Context) (Fix, error)
 }
-
-// Select returns the first source (in priority order) that yields a fix. This
-// is how GNSS can later outrank cell without changing the daemon: pass it as
-// the earlier source. Returns ErrNoFix if every source has none.
-func Select(ctx context.Context, sources ...Source) (Fix, error) {
-	for _, s := range sources {
-		if s == nil {
-			continue
-		}
-		f, err := s.Fix(ctx)
-		if err == nil && f.HasFix() {
-			return f, nil
-		}
-	}
-	return Fix{}, ErrNoFix
-}

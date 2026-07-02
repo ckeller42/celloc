@@ -1,3 +1,5 @@
+// Package cell reads the modem's serving cell for blending into a WiFi
+// geolocation request. Resolution is the provider's job.
 package cell
 
 import (
@@ -8,9 +10,11 @@ import (
 	"github.com/ckeller42/celloc/internal/qeng"
 )
 
+// servingCellCmd is the AT command for the serving cell.
+const servingCellCmd = `AT+QENG="servingcell"`
+
 // ServingCellReader reads the modem's serving cell (AT+QENG) and returns it as a
 // provider-neutral geoloc.CellTower, for blending into a WiFi geolocation request.
-// It performs no OpenCelliD lookup — resolution is the provider's job.
 type ServingCellReader struct {
 	Runner atrun.Runner
 }
