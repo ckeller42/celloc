@@ -1,0 +1,35 @@
+SECURITY.md
+  s_bbefc61c6f9053::t_c82d1ac2df368d 10-12,18-20
+docs/ARCHITECTURE.md
+  s_bbefc61c6f9053::t_7c2bd9cadea164 28,42-47
+docs/INSTALL.md
+  s_bbefc61c6f9053::t_6db5034190083e 183
+internal/qeng/qeng.go
+  s_bbefc61c6f9053::t_af8b6211a81cad 11
+internal/source/cell/servingcell.go
+  s_bbefc61c6f9053::t_7fae67d8a5ddda 1-2,13-15
+internal/source/source_test.go
+  s_bbefc61c6f9053::t_26d34455d9e0ad 14-17
+internal/uciconf/config.go
+  s_bbefc61c6f9053::t_28ae4e7e916142 13-16
+internal/uciconf/config_test.go
+  s_bbefc61c6f9053::t_d3cb04b57a6c15 26,47,52-55,59-60,64-65
+internal/unwiredlabs/client_test.go
+  s_bbefc61c6f9053::t_eb153f9938d376 40-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "c95f6e26ad0b6d6c57f0a1397e29d610c94b41de",
+  "prompts": {},
+  "sessions": {
+    "s_bbefc61c6f9053": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_bbefc61c6f9053",
+        "model": "unknown"
+      },
+      "human_author": "Christoph Keller <christoph.keller@gmx.net>"
+    }
+  }
+}
