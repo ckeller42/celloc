@@ -8,7 +8,7 @@
 //	+QENG: "NR5G-NSA",<MCC>,<MNC>,<PCID>,<RSRP>,<SINR>,<RSRQ>,<ARFCN>,<band>,...
 //	+QENG: "NR5G-SA",<duplex>,<MCC>,<MNC>,<NCI-hex>,<PCID>,<TAC-hex>,<ARFCN>,<band>,...
 //
-// Only LTE carries IDs usable for OpenCelliD in v1 (and is present as the anchor
+// Only LTE carries IDs usable for geolocation in v1 (and is present as the anchor
 // under NR5G-NSA). NR lines are decoded best-effort for completeness/future use.
 package qeng
 

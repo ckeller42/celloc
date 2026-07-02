@@ -180,4 +180,4 @@ Keep the `.ipk` on the device (e.g. `/root/`) or on the Pi so reinstall is one l
 - `:2947` is bound on all interfaces but inbound WAN is dropped by the default
   OpenWrt firewall — it is reachable from the LAN (where the Pi lives), not the
   internet. Don't open a WAN port for it. See [SECURITY.md](../SECURITY.md).
-- The OpenCelliD key is a secret: keep router config backups out of version control.
+- The provider keys (`google_key` / `key`) are secrets: keep router config backups out of version control.

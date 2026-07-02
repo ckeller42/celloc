@@ -23,10 +23,9 @@ injected interfaces.
 | Package | Kind | Responsibility |
 |---|---|---|
 | `internal/qeng` | pure | parse `AT+QENG="servingcell"` → cells; pick the LTE anchor |
-| `internal/opencellid` | pure `ParseResponse` + I/O `Client` (`Doer`) | resolve cell → lat/lon (legacy; unwired by default) |
 | `internal/gpsd` | pure reports + I/O `Server`/`Client` | gpsd TPV/SKY/VERSION/POLL |
 | `internal/source` | pure | `Source` interface + `Fix`; priority `Select` |
-| `internal/source/cell` | I/O (compose) | `ServingCellReader` (AT+qeng → serving cell for blending); legacy OpenCelliD `Source` |
+| `internal/source/cell` | I/O | `ServingCellReader` (AT+qeng → serving cell for blending) |
 | `internal/geoloc` | pure | neutral `Location{Lat,Lon,Accuracy}` shared by resolvers |
 | `internal/wifiscan` | pure parse + I/O scanner | `iw dev <if> scan` → `[]AP` |
 | `internal/unwiredlabs` | pure `ParseResponse` + I/O `Client` | LocationAPI `process.php` |
@@ -40,13 +39,12 @@ injected interfaces.
 
 ## Pluggable sources (GNSS-ready)
 
-`source.Source` is an interface; `source.Select(ctx, sources...)` returns the
-first source with a fix. By default `geolocd` runs a **single WiFi source** that
-blends the serving cell into the provider request (via `cell.ServingCellReader`);
-the resolver is provider-pluggable (`google` default, `unwiredlabs` optional)
-selected by uci `wifi_provider`. The legacy OpenCelliD cell `Source` and a future
-GNSS source (`AT+QGPS`, once an antenna exists) still satisfy `source.Source` and
-can be composed via `Select` — no change to the server.
+`source.Source` is a small interface (`Name`, `Fix`). `geolocd` runs a **single
+WiFi source** that blends the serving cell into the provider request (via
+`cell.ServingCellReader`); the resolver is provider-pluggable (`google` default,
+`unwiredlabs` optional) selected by uci `wifi_provider`. A future GNSS source
+(`AT+QGPS`, once an antenna exists) just implements `source.Source` — no change
+to the poll loop or server.
 
 ## Honest gpsd semantics
 

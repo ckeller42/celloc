@@ -7,20 +7,17 @@ Please report vulnerabilities privately via GitHub Security Advisories
 
 ## Secrets
 
-- **OpenCelliD API key** lives in `uci` on the router (`/etc/config/geolocd`,
-  `0600` root). `geolocd` reads it from uci itself, so it never appears in argv
-  or `ps`.
+- **Provider keys** (Google `google_key`; Unwired Labs `key`) live in `uci` on
+  the router (`/etc/config/geolocd`, `0600` root). `geolocd` reads them from uci
+  itself, so they never appear in argv or `ps`.
 - **InfluxDB write token** lives in `/etc/buspi/geo.env` (`0600`) on the Pi and
   is read from the environment by `geoinflux` — never passed on the command line.
 - Keep router/device config backups **out of version control**; they bundle these
   secrets. CI runs `gitleaks` to catch accidental commits.
-
 - **WiFi geolocation** sends the **BSSIDs (MAC addresses) of nearby networks**
-  to the configured provider (Google or Unwired Labs). APs whose SSID ends in
-  `_nomap` are excluded before the request is made (honoring the opt-out
-  convention). The provider keys (`google_key`, OpenCelliD `key`) live in uci
-  (`/etc/config/geolocd`, `0600`, read in-process, never in argv or `ps`).
-  `:2947` stays LAN-only as noted below.
+  (plus the serving cell) to the configured provider (Google or Unwired Labs).
+  APs whose SSID ends in `_nomap` are excluded before the request is made
+  (honoring the opt-out convention). `:2947` stays LAN-only as noted below.
 
 ## Network exposure
 

@@ -69,11 +69,6 @@ func (c *Client) Resolve(ctx context.Context, aps []wifiscan.AP, cell *geoloc.Ce
 	return geoloc.Location{Lat: loc.Lat, Lon: loc.Lon, Accuracy: loc.Accuracy}, nil
 }
 
-// LookupWifi resolves a position from the given APs.
-func (c *Client) LookupWifi(ctx context.Context, aps []WifiAP) (Location, Status, error) {
-	return c.do(ctx, Request{Token: c.Token, Wifi: aps, Address: 0})
-}
-
 func (c *Client) do(ctx context.Context, r Request) (Location, Status, error) {
 	r.Token = c.Token
 	body, err := json.Marshal(r)
