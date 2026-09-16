@@ -1,0 +1,96 @@
+name: Pages feed (opkg)
+
+# Publishes a GitHub Pages opkg feed so the router can `opkg update &&
+# opkg install geolocd` by name. Runs after release.yml has published a release
+# (which builds and attaches the .ipk assets); this workflow only *indexes and
+# serves* those assets — it never rebuilds them, so the feed is byte-identical
+# to the Releases downloads and there is no duplicated Go/ipk build logic.
+#
+# One-time manual prerequisite (a workflow cannot enable Pages on itself):
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# Never cancel an in-flight deploy; serialize feed publishes instead.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # The only OpenWrt arch built today (GL-E5800). The feed is laid out per-arch
+  # (public/<arch>/), so adding an arch later means building it in release.yml
+  # and adding its dir here — the index step already globs per-arch.
+  FEED_ARCH: aarch64_cortex-a53
+  # opkg-make-index ships in opkg-utils (not on apt/pip). Pin to a commit.
+  # https://git.yoctoproject.org/git/opkg-utils
+  OPKG_UTILS_REF: d179a334f7bfbe55dec4839607dac2c38f6b7c8f
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Fetch opkg-utils (pinned)
+        run: |
+          set -eu
+          git clone https://git.yoctoproject.org/git/opkg-utils "$RUNNER_TEMP/opkg-utils"
+          git -C "$RUNNER_TEMP/opkg-utils" checkout --quiet "$OPKG_UTILS_REF"
+
+      - name: Collect geolocd .ipk(s) from every release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          dest="public/${FEED_ARCH}"
+          mkdir -p "$dest"
+          # Accumulate: pull each published release's *versioned* ipk for this
+          # arch so `opkg install geolocd` resolves the newest while older pins
+          # stay installable. The versionless copy (geolocd_<arch>.ipk) is a
+          # Releases-only download alias — it duplicates Package/Version, so it
+          # is excluded from the index (the --pattern needs a version segment,
+          # and the rm below is a belt-and-suspenders guard).
+          tags=$(gh release list --limit 200 --json tagName,isDraft \
+                   --jq '.[] | select(.isDraft == false) | .tagName')
+          for t in $tags; do
+            gh release download "$t" -D "$dest" \
+              --pattern "geolocd_*_${FEED_ARCH}.ipk" --clobber || true
+          done
+          rm -f "$dest/geolocd_${FEED_ARCH}.ipk"
+          echo "Collected ipks:"; ls -l "$dest"
+          ls "$dest"/*.ipk >/dev/null 2>&1 \
+            || { echo "::error::no geolocd .ipk found in any release"; exit 1; }
+
+      - name: Generate opkg index (Packages + Packages.gz)
+        run: |
+          set -eu
+          dest="public/${FEED_ARCH}"
+          PYTHONPATH="$RUNNER_TEMP/opkg-utils" \
+            python3 "$RUNNER_TEMP/opkg-utils/opkg-make-index" \
+              --checksum sha256 "$dest" > "$dest/Packages"
+          gzip -9 -kf "$dest/Packages"
+          echo "--- Packages ---"; cat "$dest/Packages"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

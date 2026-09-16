@@ -4,6 +4,36 @@
 
 ### 1. Install the package
 
+#### Method A — opkg feed (recommended): install by name
+
+celloc publishes a GitHub Pages **opkg feed**, so the router can install (and
+later upgrade) `geolocd` by name — no manual `.ipk` copying. Add the feed once,
+then install:
+
+```sh
+echo 'src/gz celloc https://ckeller42.github.io/celloc/aarch64_cortex-a53' \
+  >> /etc/opkg/customfeeds.conf
+opkg update && opkg install geolocd
+```
+
+> **HTTPS support required.** opkg needs TLS to fetch from `https://`. GL-iNet
+> firmware ships it, but if `opkg update` fails on the feed URL, install the TLS
+> bits from the stock (HTTP) OpenWrt feed first:
+>
+> ```sh
+> opkg update
+> opkg install libustream-mbedtls ca-bundle   # or: ca-certificates
+> ```
+>
+> Check first with
+> `opkg list-installed | grep -E 'libustream|ca-bundle|ca-certificates'`.
+
+`opkg install geolocd` resolves the newest version in the feed; the feed keeps
+older versions too, so a specific pin stays installable. Upgrading later is just
+`opkg update && opkg upgrade geolocd`.
+
+#### Method B — download a release `.ipk` (fallback / offline)
+
 Grab `geolocd_<version>_aarch64_cortex-a53.ipk` from the
 [releases](https://github.com/ckeller42/celloc/releases) (or build it — below) and:
 
@@ -12,8 +42,9 @@ scp -O geolocd_*_aarch64_cortex-a53.ipk root@<router>:/tmp/
 ssh root@<router> 'opkg install /tmp/geolocd_*.ipk'
 ```
 
-The package installs the binary, a procd service (enabled + started), and a default
-`/etc/config/geolocd` (preserved across package upgrades as a conffile).
+Either way the package installs the binary, a procd service (enabled + started),
+and a default `/etc/config/geolocd` (preserved across package upgrades as a
+conffile).
 
 ### 2. Set your provider key
 
@@ -166,14 +197,63 @@ on the router.
 ## ⚠️ After a firmware upgrade
 
 A GL/OpenWrt **firmware flash replaces the rootfs**, so `/usr/bin/geolocd` and the
-installed package are **wiped** — but `/etc/config/geolocd` (your key) is preserved
-by sysupgrade's default keep-list. To restore:
+installed package are **wiped**. A _keep-settings_ sysupgrade preserves everything
+under `/etc/config`, so `/etc/config/geolocd` — including a `google_key` you set
+there — survives; only the package (binary + service) needs reinstalling.
+
+### Auto-restore from the feed (recommended)
+
+Because the opkg feed makes `geolocd` installable by name, you can have the router
+**reinstall it automatically on the first boot after a flash**. Scripts in
+`/etc/uci-defaults/` run once at first boot (then delete themselves on success),
+and files listed in `/etc/sysupgrade.conf` are carried across a keep-settings
+flash. Combine the two — do this once on the running router:
 
 ```sh
-opkg install /tmp/geolocd_*.ipk     # config (key) is retained; service re-enables
+cat > /etc/uci-defaults/99-geolocd-autoinstall <<'EOF'
+#!/bin/sh
+# Auto-reinstall geolocd from the celloc opkg feed after a sysupgrade.
+# uci-defaults runs this once at first boot; returning 0 removes it.
+opkg update && opkg install geolocd
+exit 0
+EOF
+chmod +x /etc/uci-defaults/99-geolocd-autoinstall
+
+# Preserve the script across the flash (and re-arm it for the next one).
+grep -qxF '/etc/uci-defaults/99-geolocd-autoinstall' /etc/sysupgrade.conf \
+  || echo '/etc/uci-defaults/99-geolocd-autoinstall' >> /etc/sysupgrade.conf
 ```
 
-Keep the `.ipk` on the device (e.g. `/root/`) or on the Pi so reinstall is one line.
+After the next _keep-settings_ sysupgrade the script is restored, runs on first
+boot, reinstalls `geolocd` from the feed, and then removes itself. Because it
+self-removes on success, re-run the block above (or just re-add the script) to
+re-arm it for a subsequent flash. This needs the feed reachable at boot and the
+HTTPS bits present (see [Method A](#method-a--opkg-feed-recommended-install-by-name)).
+
+> **The `google_key` is not restored by this.** It is a secret and is never
+> shipped in the package. If your `/etc/config/geolocd` survived the flash
+> (keep-settings sysupgrade), the key is still there and nothing else is needed.
+> If you did a **clean flash** that wiped `/etc`, re-add it after the package is
+> back:
+>
+> ```sh
+> uci set geolocd.main.google_key='AIza...'
+> uci commit geolocd && /etc/init.d/geolocd restart
+> ```
+
+### Manual restore
+
+Without the auto-install script, restore in one line — from the feed:
+
+```sh
+opkg update && opkg install geolocd    # config (key) is retained; service re-enables
+```
+
+or from a `.ipk` you kept on the device (e.g. `/root/`) or on the Pi:
+
+```sh
+opkg install /root/geolocd_*.ipk
+```
 
 ## Security
 
