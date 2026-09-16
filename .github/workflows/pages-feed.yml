@@ -59,8 +59,15 @@ jobs:
           tags=$(gh release list --limit 200 --json tagName,isDraft \
                    --jq '.[] | select(.isDraft == false) | .tagName')
           for t in $tags; do
-            gh release download "$t" -D "$dest" \
-              --pattern "geolocd_*_${FEED_ARCH}.ipk" --clobber || true
+            # Only pull from releases that actually carry a versioned ipk for
+            # this arch. Gating on the asset list (instead of `|| true`) means a
+            # genuine download error — auth, network, rate limit — still fails
+            # the job rather than being silently swallowed.
+            assets=$(gh release view "$t" --json assets --jq '.assets[].name')
+            if printf '%s\n' "$assets" | grep -Eq "^geolocd_.+_${FEED_ARCH}\.ipk$"; then
+              gh release download "$t" -D "$dest" \
+                --pattern "geolocd_*_${FEED_ARCH}.ipk" --clobber
+            fi
           done
           rm -f "$dest/geolocd_${FEED_ARCH}.ipk"
           echo "Collected ipks:"; ls -l "$dest"
