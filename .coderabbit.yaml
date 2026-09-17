@@ -15,6 +15,27 @@ reviews:
     base_branches:
       - main
   path_instructions:
+    - path: "**"
+      instructions: >-
+        This is a public, generic project. Flag any content that ties the
+        repository to the author's own deployment instead of a generic user,
+        as a "setup exposure" finding: private/LAN addresses (192.168.x.x,
+        10.x.x.x, 172.16-31.x.x) or specific subnets; tailnet addresses
+        (100.x.x.x) and MagicDNS/tailnet names (*.ts.net); personal
+        hostnames or machine names; usernames, home directories, or
+        absolute personal paths (/Users/<name>, /home/<name>); email
+        addresses; MAC addresses, serial numbers, IMEI/ICCID; WiFi SSIDs;
+        real coordinates, addresses, or place names of the author's vehicle
+        or home; secrets or credential fragments (API keys, tokens, MQTT/
+        InfluxDB/Grafana credentials, usign keys) even if partial or in
+        examples; cloud org/bucket/instance identifiers. Prefer placeholders
+        (<router>, 192.0.2.0/24, example.invalid, <GOOGLE_KEY>) in docs
+        and tests. Explicitly ALLOWED and not a finding: naming the
+        hardware and software in use (e.g. GL-iNet GL-E5800, Quectel
+        modem models, Raspberry Pi models, ESP32/M5Stack boards, OpenWrt
+        versions), the project's own public URLs (github.com/ckeller42/
+        celloc, ckeller42.github.io), generic system paths
+        (/etc/config/geolocd), and the author's public GitHub handle.
     - path: "**/*.go"
       instructions: >-
         Enforce the pure-vs-I/O split: parsing/marshaling packages must stay
