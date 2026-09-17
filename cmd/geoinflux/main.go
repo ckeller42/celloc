@@ -15,6 +15,7 @@ import (
 
 	"github.com/ckeller42/celloc/internal/gpsd"
 	"github.com/ckeller42/celloc/internal/influx"
+	"github.com/ckeller42/celloc/internal/source"
 )
 
 // Version is overridable via -ldflags "-X main.Version=v1.2.3".
@@ -43,14 +44,16 @@ func run() error {
 		URL: *influxURL, Org: *org, Bucket: *bucket, Token: token,
 		HTTP: &http.Client{Timeout: 10 * time.Second},
 	}
+	u := &uploader{w: w, minInterval: *minInterval, now: time.Now}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	log.Printf("geoinflux %s: gpsd %s -> %s (bucket %s, min-interval %s)", Version, *gpsdAddr, *influxURL, *bucket, *minInterval)
 
 	for ctx.Err() == nil {
-		if err := stream(ctx, *gpsdAddr, w, *minInterval); err != nil && ctx.Err() == nil {
+		if err := stream(ctx, *gpsdAddr, u); err != nil && ctx.Err() == nil {
 			log.Printf("geoinflux: %v; reconnecting in 10s", err)
+			u.disconnected(ctx)
 			select {
 			case <-ctx.Done():
 			case <-time.After(10 * time.Second):
@@ -61,7 +64,7 @@ func run() error {
 }
 
 // stream connects once and uploads fixes until the connection or ctx ends.
-func stream(ctx context.Context, addr string, w *influx.Writer, minInterval time.Duration) error {
+func stream(ctx context.Context, addr string, u *uploader) error {
 	c, err := gpsd.Dial(ctx, addr)
 	if err != nil {
 		return err
@@ -84,23 +87,81 @@ func stream(ctx context.Context, addr string, w *influx.Writer, minInterval time
 	if err := c.Watch(); err != nil {
 		return err
 	}
-	var lastAttempt time.Time
 	for {
 		tpv, err := c.ReadTPV()
 		if err != nil {
 			return err
 		}
-		f := gpsd.FixFromTPV(tpv)
-		now := time.Now()
-		if !f.HasFix() || (!lastAttempt.IsZero() && now.Sub(lastAttempt) < minInterval) {
-			continue
-		}
-		lastAttempt = now // debounce attempts, not just successes
-		if err := w.Write(ctx, influx.FixLine(f)); err != nil {
-			log.Printf("geoinflux: write failed: %v", err)
-			continue
-		}
-		log.Printf("geoinflux: wrote %.4f,%.4f eph=%.0fm (%s)", f.Lat, f.Lon, f.EPH, f.Radio)
+		u.onTPV(ctx, tpv)
+	}
+}
+
+// lineWriter is the subset of *influx.Writer the uploader needs.
+type lineWriter interface {
+	Write(ctx context.Context, line string) error
+}
+
+// uploader turns received TPVs into InfluxDB writes: a geo point per fix and a
+// geo_status heartbeat, each at most once per minInterval (attempts, not just
+// successes, are debounced).
+type uploader struct {
+	w           lineWriter
+	minInterval time.Duration
+	now         func() time.Time
+
+	lastFix, lastStatus time.Time
+	fixState            int // 0 unknown, 1 fix, 2 no fix: log transitions once
+}
+
+const (
+	stateUnknown = iota
+	stateFix
+	stateNoFix
+)
+
+func (u *uploader) due(last, now time.Time) bool {
+	return last.IsZero() || now.Sub(last) >= u.minInterval
+}
+
+func (u *uploader) onTPV(ctx context.Context, tpv gpsd.TPV) {
+	f := gpsd.FixFromTPV(tpv)
+	now := u.now()
+
+	switch {
+	case f.HasFix() && u.fixState != stateFix:
+		log.Printf("geoinflux: fix acquired (%s, eph=%.0fm)", f.Source, f.EPH)
+		u.fixState = stateFix
+	case !f.HasFix() && u.fixState != stateNoFix:
+		log.Printf("geoinflux: fix lost (router reports mode=%d)", f.Mode)
+		u.fixState = stateNoFix
+	}
+
+	u.writeStatus(ctx, f, true, now)
+
+	if !f.HasFix() || !u.due(u.lastFix, now) {
+		return
+	}
+	u.lastFix = now
+	if err := u.w.Write(ctx, influx.FixLine(f)); err != nil {
+		log.Printf("geoinflux: write failed: %v", err)
+		return
+	}
+	log.Printf("geoinflux: wrote %.4f,%.4f eph=%.0fm (%s)", f.Lat, f.Lon, f.EPH, f.Radio)
+}
+
+// disconnected records that the router's gpsd is unreachable.
+func (u *uploader) disconnected(ctx context.Context) {
+	u.fixState = stateUnknown
+	u.writeStatus(ctx, source.Fix{}, false, u.now())
+}
+
+func (u *uploader) writeStatus(ctx context.Context, f source.Fix, connected bool, now time.Time) {
+	if !u.due(u.lastStatus, now) {
+		return
+	}
+	u.lastStatus = now
+	if err := u.w.Write(ctx, influx.StatusLine(f, connected, now)); err != nil {
+		log.Printf("geoinflux: status write failed: %v", err)
 	}
 }
 

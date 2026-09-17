@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/ckeller42/celloc/internal/ratelog"
 	"github.com/ckeller42/celloc/internal/source"
 )
 
@@ -124,11 +125,18 @@ func TPVFromFix(f source.Fix, device string) TPV {
 	return t
 }
 
+// timeLogs throttles FixFromTPV's unparsable-time log.
+var timeLogs ratelog.Limiter
+
 // FixFromTPV reconstructs a source.Fix from a received TPV (the inverse of
 // TPVFromFix), used by the Pi uploader. Cell identifiers come from the cellfix
-// extension; a TPV without a fix yields Mode 0.
+// extension; a TPV without a fix yields Mode 0, and so does a TPV claiming a fix
+// without both coordinates (never turn a missing position into 0,0).
 func FixFromTPV(t TPV) source.Fix {
 	f := source.Fix{Mode: t.Mode}
+	if t.Mode >= 2 && (t.Lat == nil || t.Lon == nil) {
+		f.Mode = 0
+	}
 	if t.Lat != nil {
 		f.Lat = *t.Lat
 	}
@@ -145,7 +153,10 @@ func FixFromTPV(t TPV) source.Fix {
 		f.EPY = *t.EPY
 	}
 	if t.Time != "" {
-		if ts, err := time.Parse(timeFormat, t.Time); err == nil {
+		ts, err := time.Parse(timeFormat, t.Time)
+		if err != nil {
+			timeLogs.Printf("gpsd: ignoring unparsable TPV time: %v", err)
+		} else {
 			f.Time = ts
 		}
 	}

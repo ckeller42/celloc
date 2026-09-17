@@ -23,12 +23,13 @@ type Writer struct {
 	HTTP   Doer
 }
 
-// Write sends a single line-protocol record (second precision).
+// Write sends a single line-protocol record. Timestamps, when present, are
+// nanoseconds (FixLine/StatusLine emit time.UnixNano).
 func (w *Writer) Write(ctx context.Context, line string) error {
 	endpoint := strings.TrimRight(w.URL, "/") + "/api/v2/write?" + url.Values{
 		"org":       {w.Org},
 		"bucket":    {w.Bucket},
-		"precision": {"s"},
+		"precision": {"ns"},
 	}.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(line))
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ckeller42/celloc/internal/geoloc"
+	"github.com/ckeller42/celloc/internal/ratelog"
 	"github.com/ckeller42/celloc/internal/source"
 	"github.com/ckeller42/celloc/internal/wifiscan"
 )
@@ -57,6 +58,7 @@ type Source struct {
 	lastAt     time.Time
 	lastLogMsg string
 	lastLogAt  time.Time
+	scanLogs   ratelog.Limiter
 }
 
 // New builds a wifi Source with a real clock and log.Printf as the log sink.
@@ -103,6 +105,12 @@ func (s *Source) resolve(ctx context.Context) (source.Fix, error) {
 			return source.Fix{}, fmt.Errorf("wifi scan: %w", scanErr)
 		}
 		return source.Fix{}, errFewAPs
+	}
+	if scanErr != nil && s.Logf != nil {
+		// The cell still carries the fix; don't let the scan failure go unseen.
+		if s.scanLogs.Allow("scan") {
+			s.Logf("wifi: scan failed: %v (resolving with serving cell only)", scanErr)
+		}
 	}
 
 	loc, err := s.Resolver.Resolve(ctx, aps, cell)

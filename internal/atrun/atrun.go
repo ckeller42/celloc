@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Runner executes a single AT command and returns the raw modem response.
@@ -20,9 +21,17 @@ type Runner interface {
 // tests can stub the subprocess.
 type Exec func(ctx context.Context, name string, args ...string) ([]byte, error)
 
+// ExecTimeout bounds each subprocess run by OSExec. A var so tests can shrink it.
+var ExecTimeout = 20 * time.Second
+
 // OSExec is the production Exec backed by os/exec.
 func OSExec(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, args...).Output()
+	ctx, cancel := context.WithTimeout(ctx, ExecTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	// A killed helper may leave a child holding stdout open; don't wait on it.
+	cmd.WaitDelay = time.Second
+	return cmd.Output()
 }
 
 // GlModem runs `gl_modem -B <bus> AT '<atCmd>'` (the GL-iNet helper).

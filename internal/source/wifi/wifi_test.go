@@ -3,6 +3,8 @@ package wifi_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -145,5 +147,24 @@ func TestWifiCellOnlyWhenTooFewAPs(t *testing.T) {
 	}
 	if f.Source != "cell" || f.APCount != 0 || f.CID != 23612222 || f.EPH != 1400 {
 		t.Fatalf("cell-only fix expected with cell IDs: %+v", f)
+	}
+}
+
+func TestWifiScanErrorLoggedWhenCellCarriesFix(t *testing.T) {
+	var logs []string
+	failScan := scanFunc(func(context.Context) ([]wifiscan.AP, error) {
+		return nil, errors.New("iw: device busy")
+	})
+	s := wifi.New(failScan, okRes(), 2, time.Minute)
+	s.Cell = lteCell()
+	s.Logf = func(format string, args ...any) { logs = append(logs, fmt.Sprintf(format, args...)) }
+	for i := 0; i < 3; i++ {
+		f, err := s.Fix(context.Background())
+		if err != nil || f.Source != "cell" {
+			t.Fatalf("want cell-only fix: %+v err=%v", f, err)
+		}
+	}
+	if len(logs) != 1 || !strings.Contains(logs[0], "iw: device busy") {
+		t.Fatalf("want exactly one rate-limited scan-error log, got %q", logs)
 	}
 }

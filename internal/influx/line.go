@@ -3,7 +3,9 @@
 package influx
 
 import (
+	"math"
 	"strconv"
+	"time"
 
 	"github.com/ckeller42/celloc/internal/source"
 )
@@ -17,14 +19,19 @@ const Measurement = "geo"
 //
 //	geo,source=cell,radio=LTE lat=..,lon=..,range_m=Ni,mcc=Ni,mnc=Ni,cid=Ni,tac=Ni
 //
-// No timestamp is appended — InfluxDB assigns server time (matches the seed and
-// the ?precision=s write endpoint).
+// followed by the fix's own time as a nanosecond timestamp (Writer posts with
+// ?precision=ns) so a fix uploaded late is stored at the time it was taken.
+// A fix without a time gets no timestamp (InfluxDB assigns server time).
 //
 // Lat/lon are formatted with strconv.FormatFloat(-1) (shortest round-trippable
 // form). Values are numerically identical to the seed's raw JSON substring and
 // the schema/tags/field-order match byte-for-byte, but the float text may differ
 // in trailing zeros (seed "48.10" vs "48.1"); InfluxDB parses both identically.
 func FixLine(f source.Fix) string {
+	return fixFields(f) + timestamp(f.Time)
+}
+
+func fixFields(f source.Fix) string {
 	if f.Source == "wifi" {
 		return Measurement +
 			",source=wifi" +
@@ -45,6 +52,39 @@ func FixLine(f source.Fix) string {
 		",mnc=" + strconv.Itoa(f.MNC) + "i" +
 		",cid=" + strconv.FormatInt(f.CID, 10) + "i" +
 		",tac=" + strconv.Itoa(f.TAC) + "i"
+}
+
+// StatusMeasurement is the heartbeat measurement written by StatusLine.
+const StatusMeasurement = "geo_status"
+
+// StatusLine renders the uploader's view of the position feed, written every
+// upload interval whether or not there is a fix, so InfluxDB can tell a dead
+// uploader (no points) from an unreachable daemon (connected=false), no fix
+// (mode<2) and a stale fix (growing fix_age_s):
+//
+//	geo_status mode=Ni,fix_age_s=F,connected=B <now-ns>
+//
+// fix_age_s is now minus the fix time in seconds (millisecond resolution), or
+// -1 when the fix carries no time.
+func StatusLine(f source.Fix, connected bool, now time.Time) string {
+	age := -1.0
+	if !f.Time.IsZero() {
+		age = math.Round(now.Sub(f.Time).Seconds()*1000) / 1000
+	}
+	return StatusMeasurement +
+		" mode=" + strconv.Itoa(f.Mode) + "i" +
+		",fix_age_s=" + strconv.FormatFloat(age, 'f', -1, 64) +
+		",connected=" + strconv.FormatBool(connected) +
+		timestamp(now)
+}
+
+// timestamp renders t as a line-protocol nanosecond timestamp (with its leading
+// space), or "" for the zero time.
+func timestamp(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return " " + strconv.FormatInt(t.UnixNano(), 10)
 }
 
 // tagEscape escapes the line-protocol tag special characters (space, comma, =).

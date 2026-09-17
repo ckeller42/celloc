@@ -1,15 +1,16 @@
 // Package qeng parses the Quectel `AT+QENG="servingcell"` modem response into
 // serving-cell identifiers. Pure: no I/O, no env, fully table-testable.
 //
-// Observed GL-E5800 (SDX75) line formats (the leading "servingcell",<state>
-// tokens are omitted by this modem variant):
+// Observed GL-E5800 (SDX75) line formats. The leading "servingcell",<state>
+// tokens are omitted by some firmware; the standard Quectel form carries them on
+// the same line (+QENG: "servingcell","NOCONN","LTE",...) and they are skipped:
 //
 //	+QENG: "LTE","FDD",<MCC>,<MNC>,<CID-hex>,<PCID>,<EARFCN>,<band>,<UL>,<DL>,<TAC-hex>,<RSRP>,...
 //	+QENG: "NR5G-NSA",<MCC>,<MNC>,<PCID>,<RSRP>,<SINR>,<RSRQ>,<ARFCN>,<band>,...
 //	+QENG: "NR5G-SA",<duplex>,<MCC>,<MNC>,<NCI-hex>,<PCID>,<TAC-hex>,<ARFCN>,<band>,...
 //
-// Only LTE carries IDs usable for geolocation in v1 (and is present as the anchor
-// under NR5G-NSA). NR lines are decoded best-effort for completeness/future use.
+// LTE carries IDs usable for geolocation (and is present as the anchor under
+// NR5G-NSA); NR5G-SA carries its own NCI/TAC. NR5G-NSA has no cell IDs.
 package qeng
 
 import (
@@ -68,12 +69,15 @@ func ParseServingCell(out string) ([]Cell, error) {
 	return cells, nil
 }
 
-// SelectGeolocatable returns the best cell to geolocate in v1: the first LTE
-// cell with IDs (also the NSA anchor). Returns false if there is none.
+// SelectGeolocatable returns the best cell to geolocate: the first LTE cell with
+// IDs (also the NSA anchor), else the first NR5G-SA cell with IDs. Returns false
+// if there is none.
 func SelectGeolocatable(cells []Cell) (Cell, bool) {
-	for _, c := range cells {
-		if c.Radio == RadioLTE && c.HasID {
-			return c, true
+	for _, want := range []Radio{RadioLTE, RadioNR5GSA} {
+		for _, c := range cells {
+			if c.Radio == want && c.HasID {
+				return c, true
+			}
 		}
 	}
 	return Cell{}, false
@@ -87,7 +91,19 @@ func splitFields(body string) []string {
 	return parts
 }
 
+// servingCellPrefix is the leading token of the standard Quectel form
+// `+QENG: "servingcell",<state>,<radio>,...`.
+const servingCellPrefix = "servingcell"
+
 func decode(f []string, raw string) (Cell, bool) {
+	if f[0] == servingCellPrefix {
+		// Drop "servingcell",<state>. A bare state line (e.g. "SEARCH") has no
+		// radio fields and decodes to nothing.
+		if len(f) < 3 {
+			return Cell{}, false
+		}
+		f = f[2:]
+	}
 	switch Radio(f[0]) {
 	case RadioLTE:
 		// f: [LTE FDD MCC MNC CID PCID EARFCN band UL DL TAC ...]

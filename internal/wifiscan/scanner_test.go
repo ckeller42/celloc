@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ckeller42/celloc/internal/wifiscan"
 )
@@ -76,5 +77,21 @@ func TestScannerErrorWhenAllIfacesFailAndNoAPs(t *testing.T) {
 	s := wifiscan.Scanner{Ifaces: []string{"wlan9"}, Exec: exec}
 	if _, err := s.Scan(context.Background()); err == nil {
 		t.Fatal("want error when every iface scan fails")
+	}
+}
+
+func TestOSExecBoundedByExecTimeout(t *testing.T) {
+	old := wifiscan.ExecTimeout
+	wifiscan.ExecTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { wifiscan.ExecTimeout = old })
+
+	start := time.Now()
+	// The daemon ctx has no deadline; a wedged `iw` must still be killed.
+	_, err := wifiscan.OSExec(context.Background(), "sleep", "30")
+	if err == nil {
+		t.Fatal("want error from killed subprocess")
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Fatalf("OSExec not bounded: took %s", d)
 	}
 }

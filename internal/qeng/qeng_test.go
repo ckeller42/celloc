@@ -112,9 +112,65 @@ func TestNR5GSADecodesIDs(t *testing.T) {
 	if c.CID != 0x12345ABC || c.TAC != 0xE8E5 || !c.HasID {
 		t.Fatalf("NR5G-SA IDs not decoded: %+v", c)
 	}
-	// v1 still won't select it (LTE-only).
-	if _, ok := qeng.SelectGeolocatable(cells); ok {
-		t.Fatal("NR5G-SA must not be selected in v1")
+	// SA has no LTE anchor, so its own IDs are the only cell to geolocate.
+	got, ok := qeng.SelectGeolocatable(cells)
+	if !ok || got.Radio != qeng.RadioNR5GSA || got.CID != 0x12345ABC {
+		t.Fatalf("NR5G-SA with IDs must be selectable, got %+v ok=%v", got, ok)
+	}
+}
+
+func TestSelectGeolocatablePrefersLTEOverNR5GSA(t *testing.T) {
+	in := `+QENG: "NR5G-SA","TDD",262,03,12345ABC,500,E8E5,627264,78` + "\r\n" + lteLine + "\r\n"
+	cells, err := qeng.ParseServingCell(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := qeng.SelectGeolocatable(cells)
+	if !ok || got.Radio != qeng.RadioLTE {
+		t.Fatalf("want LTE preferred, got %+v ok=%v", got, ok)
+	}
+}
+
+// The standard Quectel form prefixes "servingcell",<state> on the same line.
+func TestParsePrefixedServingCell(t *testing.T) {
+	const prefixedLTE = `+QENG: "servingcell","NOCONN","LTE","FDD",262,03,1684B3E,204,3350,7,5,5,E8E5,-83,-14,-47,17,13,100,-`
+	tests := []struct {
+		name    string
+		in      string
+		wantOK  bool
+		wantLTE bool
+	}{
+		{"prefixed LTE", prefixedLTE, true, true},
+		{"prefixed LTE CRLF", prefixedLTE + "\r\n\r\nOK\r\n", true, true},
+		{"prefixed LTE with echo", "AT+QENG=\"servingcell\"\r\n" + prefixedLTE + "\r\nOK\r\n", true, true},
+		{"search state only", `+QENG: "servingcell","SEARCH"`, false, false},
+		{"limited service only", `+QENG: "servingcell","LIMSRV"` + "\r\n", false, false},
+		{"prefix only", `+QENG: "servingcell"`, false, false},
+		{"truncated prefixed LTE", `+QENG: "servingcell","NOCONN","LTE","FDD",262`, false, false},
+		{"prefixed NR5G-SA", `+QENG: "servingcell","NOCONN","NR5G-SA","TDD",262,03,12345ABC,500,E8E5,627264,78`, true, false},
+		{"state line then unprefixed LTE", `+QENG: "servingcell","CONNECT"` + "\r\n" + lteLine + "\r\n", true, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cells, err := qeng.ParseServingCell(tc.in)
+			got, ok := qeng.SelectGeolocatable(cells)
+			if ok != tc.wantOK {
+				t.Fatalf("ok=%v want %v (cells=%+v err=%v)", ok, tc.wantOK, cells, err)
+			}
+			if !ok {
+				return
+			}
+			if tc.wantLTE {
+				if got.Radio != qeng.RadioLTE || got.MCC != 262 || got.MNC != 3 ||
+					got.CID != 0x1684B3E || got.TAC != 0xE8E5 || got.Signal != -83 {
+					t.Fatalf("bad prefixed LTE decode: %+v", got)
+				}
+				return
+			}
+			if got.Radio != qeng.RadioNR5GSA || got.CID != 0x12345ABC || got.TAC != 0xE8E5 {
+				t.Fatalf("bad prefixed NR5G-SA decode: %+v", got)
+			}
+		})
 	}
 }
 

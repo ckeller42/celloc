@@ -99,15 +99,33 @@ type errInvalidConfig string
 
 func (e errInvalidConfig) Error() string { return string(e) }
 
-func pollLoop(ctx context.Context, src source.Source, every time.Duration, cur *atomic.Value) {
-	poll := func() {
-		f, err := src.Fix(ctx)
-		if err != nil {
-			cur.Store(source.Fix{Mode: 0})
-			return
+// pollTimeout bounds a single src.Fix call. A var so tests can shrink it.
+var pollTimeout = 60 * time.Second
+
+// pollOnce runs one bounded src.Fix and publishes the result. hadFix carries the
+// previous outcome so fix<->no-fix transitions are logged once each.
+func pollOnce(ctx context.Context, src source.Source, cur *atomic.Value, hadFix *bool) {
+	ctx, cancel := context.WithTimeout(ctx, pollTimeout)
+	defer cancel()
+	f, err := src.Fix(ctx)
+	if err != nil {
+		cur.Store(source.Fix{Mode: 0})
+		if *hadFix {
+			log.Printf("geolocd: position lost: %v (serving no-fix)", err)
 		}
-		cur.Store(f)
+		*hadFix = false
+		return
 	}
+	cur.Store(f)
+	if !*hadFix {
+		log.Printf("geolocd: position acquired (%s, eph=%.0fm)", f.Source, f.EPH)
+	}
+	*hadFix = true
+}
+
+func pollLoop(ctx context.Context, src source.Source, every time.Duration, cur *atomic.Value) {
+	hadFix := false
+	poll := func() { pollOnce(ctx, src, cur, &hadFix) }
 	poll()
 	t := time.NewTicker(every)
 	defer t.Stop()
