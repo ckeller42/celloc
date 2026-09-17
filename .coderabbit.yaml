@@ -30,7 +30,9 @@ reviews:
         InfluxDB/Grafana credentials, usign keys) even if partial or in
         examples; cloud org/bucket/instance identifiers. Prefer placeholders
         (<router>, 192.0.2.0/24, example.invalid, <GOOGLE_KEY>) in docs
-        and tests. Explicitly ALLOWED and not a finding: naming the
+        and tests; those documentation placeholders (RFC 5737 192.0.2.0/24,
+        198.51.100.0/24, 203.0.113.0/24, RFC 2606 example.* / .invalid, and
+        <ANGLE_BRACKET> or AIza... ellipsis stand-ins) are NOT findings. Explicitly ALLOWED and not a finding: naming the
         hardware and software in use (e.g. GL-iNet GL-E5800, Quectel
         modem models, Raspberry Pi models, ESP32/M5Stack boards, OpenWrt
         versions), the project's own public URLs (github.com/ckeller42/
