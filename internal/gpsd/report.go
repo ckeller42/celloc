@@ -5,6 +5,7 @@ package gpsd
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ckeller42/celloc/internal/source"
@@ -126,9 +127,17 @@ func TPVFromFix(f source.Fix, device string) TPV {
 
 // FixFromTPV reconstructs a source.Fix from a received TPV (the inverse of
 // TPVFromFix), used by the Pi uploader. Cell identifiers come from the cellfix
-// extension; a TPV without a fix yields Mode 0.
-func FixFromTPV(t TPV) source.Fix {
+// extension; a TPV without a fix yields Mode 0, and so does a TPV claiming a fix
+// without both coordinates (never turn a missing position into 0,0).
+//
+// The error is non-nil only when the TPV time is unparsable; the returned Fix is
+// still usable, with a zero Time, so the caller decides how to report it.
+func FixFromTPV(t TPV) (source.Fix, error) {
+	var timeErr error
 	f := source.Fix{Mode: t.Mode}
+	if t.Mode >= 2 && (t.Lat == nil || t.Lon == nil) {
+		f.Mode = 0
+	}
 	if t.Lat != nil {
 		f.Lat = *t.Lat
 	}
@@ -145,7 +154,10 @@ func FixFromTPV(t TPV) source.Fix {
 		f.EPY = *t.EPY
 	}
 	if t.Time != "" {
-		if ts, err := time.Parse(timeFormat, t.Time); err == nil {
+		ts, err := time.Parse(timeFormat, t.Time)
+		if err != nil {
+			timeErr = fmt.Errorf("gpsd: unparsable TPV time: %w", err)
+		} else {
 			f.Time = ts
 		}
 	}
@@ -158,7 +170,7 @@ func FixFromTPV(t TPV) source.Fix {
 		f.Source = "wifi"
 		f.APCount = t.WifiFix.APCount
 	}
-	return f
+	return f, timeErr
 }
 
 // SKYEmpty returns the satellite-less SKY report for the device.

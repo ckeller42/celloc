@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ckeller42/celloc/internal/atrun"
 )
@@ -87,5 +88,21 @@ func TestNewDefaultsToGlModem(t *testing.T) {
 	}
 	if _, ok := atrun.New("ubus", "CPU").(atrun.Ubus); !ok {
 		t.Fatal("ubus runner expected")
+	}
+}
+
+func TestOSExecBoundedByExecTimeout(t *testing.T) {
+	old := atrun.ExecTimeout
+	atrun.ExecTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { atrun.ExecTimeout = old })
+
+	start := time.Now()
+	// The daemon ctx has no deadline; a wedged gl_modem must still be killed.
+	_, err := atrun.OSExec(context.Background(), "sleep", "30")
+	if err == nil {
+		t.Fatal("want error from killed subprocess")
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Fatalf("OSExec not bounded: took %s", d)
 	}
 }

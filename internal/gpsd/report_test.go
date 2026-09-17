@@ -3,6 +3,7 @@ package gpsd_test
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,7 +66,7 @@ func TestSKYEmptyHasNoFakeDOP(t *testing.T) {
 }
 
 func TestFixFromTPV_NoFix(t *testing.T) {
-	got := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 0})
+	got, _ := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 0})
 	if got.HasFix() || got.Source != "" {
 		t.Fatalf("no-fix TPV should yield empty fix: %+v", got)
 	}
@@ -100,8 +101,46 @@ func TestTPVFromWifiFix(t *testing.T) {
 			t.Fatalf("wifi TPV must not contain %s: %s", k, b)
 		}
 	}
-	back := gpsd.FixFromTPV(tpv)
+	back, _ := gpsd.FixFromTPV(tpv)
 	if back.Source != "wifi" || back.APCount != 7 {
 		t.Fatalf("FixFromTPV lost wifi info: %+v", back)
+	}
+}
+
+func TestFixFromTPV_ModeWithoutCoordsIsNoFix(t *testing.T) {
+	lat := 48.7
+	tests := []struct {
+		name string
+		tpv  gpsd.TPV
+	}{
+		{"mode 2, no lat/lon", gpsd.TPV{Class: "TPV", Mode: 2}},
+		{"mode 3, lat only", gpsd.TPV{Class: "TPV", Mode: 3, Lat: &lat}},
+		{"mode 2, lon only", gpsd.TPV{Class: "TPV", Mode: 2, Lon: &lat}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, _ := gpsd.FixFromTPV(tc.tpv); got.HasFix() {
+				t.Fatalf("TPV without coordinates must not be a fix (bogus 0,0): %+v", got)
+			}
+		})
+	}
+}
+
+func TestFixFromTPV_KeepsTime(t *testing.T) {
+	lat, lon := 48.7, 9.1
+	got, err := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 2, Lat: &lat, Lon: &lon, Time: "2026-06-28T12:00:00.000Z"})
+	if err != nil || !got.HasFix() || !got.Time.Equal(time.Date(2026, 6, 28, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("want fix with parsed time: %+v", got)
+	}
+}
+
+func TestFixFromTPV_BadTimeIsReported(t *testing.T) {
+	lat, lon := 48.7, 9.1
+	got, err := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 2, Lat: &lat, Lon: &lon, Time: "yesterday-ish"})
+	if err == nil || !strings.Contains(err.Error(), "yesterday-ish") {
+		t.Fatalf("want error naming the bad time, got %v", err)
+	}
+	if !got.HasFix() || !got.Time.IsZero() {
+		t.Fatalf("position must survive with a zero time: %+v", got)
 	}
 }

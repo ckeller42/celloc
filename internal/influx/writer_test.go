@@ -34,7 +34,7 @@ func TestWriterPostsLineProtocol(t *testing.T) {
 		t.Fatalf("method %s", got.Method)
 	}
 	q := got.URL.Query()
-	if q.Get("org") != "home" || q.Get("bucket") != "buspi" || q.Get("precision") != "s" {
+	if q.Get("org") != "home" || q.Get("bucket") != "buspi" || q.Get("precision") != "ns" {
 		t.Fatalf("query: %v", q)
 	}
 	if got.Header.Get("Authorization") != "Token tok" {

@@ -46,7 +46,10 @@ func TestClientReadsTPVFromServer(t *testing.T) {
 	}
 
 	// And the inverse conversion reconstructs a usable Fix.
-	got := gpsd.FixFromTPV(tpv)
+	got, err := gpsd.FixFromTPV(tpv)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got.Mode != 2 || got.Lat != 48.7698 || got.Radio != "LTE" || got.CID != 0x1684B3E || got.Source != "cell" {
 		t.Fatalf("FixFromTPV wrong: %+v", got)
 	}
@@ -81,8 +84,12 @@ func TestWifiRoundTripToInfluxLine(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	back := gpsd.FixFromTPV(tpv)
-	const want = "geo,source=wifi lat=48.7701,lon=9.169,range_m=35i,ap_count=7i"
+	back, err := gpsd.FixFromTPV(tpv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The fix's own time survives the round trip as the point's ns timestamp.
+	const want = "geo,source=wifi lat=48.7701,lon=9.169,range_m=35i,ap_count=7i 1700000000000000000"
 	if got := influx.FixLine(back); got != want {
 		t.Fatalf("round-trip influx line = %q, want %q", got, want)
 	}
