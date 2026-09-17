@@ -48,7 +48,7 @@ implemented and tested, and the OpenWrt `.ipk` builds in CI. Docs:
 ```sh
 # on the router — install by name from the GitHub Pages opkg feed
 echo 'src/gz celloc https://ckeller42.github.io/celloc/aarch64_cortex-a53' >> /etc/opkg/customfeeds.conf
-opkg update && opkg install geolocd
+opkg update; opkg install geolocd   # ';' not '&&': opkg update exits non-zero if ANY feed fails
 uci set geolocd.main.google_key='AIza...your_google_geolocation_key'
 uci commit geolocd && /etc/init.d/geolocd restart
 gpspipe -w <router-ip>:2947     # verify a TPV with lat/lon (wifix + tight eph)
