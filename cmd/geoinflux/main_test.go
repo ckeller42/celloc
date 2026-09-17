@@ -121,3 +121,41 @@ func TestUploaderLogsFixTransitionsOnce(t *testing.T) {
 		t.Fatalf("want 2 'fix acquired', got %d:\n%s", n, out)
 	}
 }
+
+func TestUploaderStatusConnectionChangeBypassesDebounce(t *testing.T) {
+	captureLog(t)
+	now := time.Unix(1789632000, 0)
+	w := &fakeWriter{}
+	u := &uploader{w: w, minInterval: 30 * time.Second, now: func() time.Time { return now }}
+
+	u.onTPV(context.Background(), gpsd.TPV{Class: "TPV", Mode: 0})
+	now = now.Add(time.Second)
+	u.disconnected(context.Background()) // state changed: must not wait for the interval
+	now = now.Add(time.Second)
+	u.disconnected(context.Background()) // same state: debounced
+	now = now.Add(time.Second)
+	u.onTPV(context.Background(), gpsd.TPV{Class: "TPV", Mode: 0}) // reconnected: immediate
+	if count(w.lines, "geo_status ") != 3 ||
+		!strings.Contains(w.lines[1], "connected=false") || !strings.Contains(w.lines[2], "connected=true") {
+		t.Fatalf("want connected, disconnected, connected status lines, got %q", w.lines)
+	}
+}
+
+func TestUploaderLogsBadTPVTimeRateLimited(t *testing.T) {
+	buf := captureLog(t)
+	now := time.Unix(1789632000, 0)
+	w := &fakeWriter{}
+	u := &uploader{w: w, minInterval: 30 * time.Second, now: func() time.Time { return now }}
+	tpv := fixTPV(now)
+	tpv.Time = "yesterday-ish"
+	for i := 0; i < 3; i++ {
+		now = now.Add(time.Second)
+		u.onTPV(context.Background(), tpv)
+	}
+	if n := strings.Count(buf.String(), "unparsable TPV time"); n != 1 || !strings.Contains(buf.String(), "yesterday-ish") {
+		t.Fatalf("want bad TPV time logged once, got %d:\n%s", n, buf.String())
+	}
+	if count(w.lines, "geo,source=wifi ") != 1 {
+		t.Fatalf("fix with bad time must still be written: %q", w.lines)
+	}
+}

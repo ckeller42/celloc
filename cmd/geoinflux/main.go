@@ -15,6 +15,7 @@ import (
 
 	"github.com/ckeller42/celloc/internal/gpsd"
 	"github.com/ckeller42/celloc/internal/influx"
+	"github.com/ckeller42/celloc/internal/ratelog"
 	"github.com/ckeller42/celloc/internal/source"
 )
 
@@ -110,7 +111,9 @@ type uploader struct {
 	now         func() time.Time
 
 	lastFix, lastStatus time.Time
-	fixState            int // 0 unknown, 1 fix, 2 no fix: log transitions once
+	lastConnected       bool
+	fixState            int // log fix/no-fix transitions once
+	logs                ratelog.Limiter
 }
 
 const (
@@ -124,7 +127,10 @@ func (u *uploader) due(last, now time.Time) bool {
 }
 
 func (u *uploader) onTPV(ctx context.Context, tpv gpsd.TPV) {
-	f := gpsd.FixFromTPV(tpv)
+	f, err := gpsd.FixFromTPV(tpv)
+	if err != nil {
+		u.logs.Printf("geoinflux: %v (writing fix without its time)", err)
+	}
 	now := u.now()
 
 	switch {
@@ -155,11 +161,13 @@ func (u *uploader) disconnected(ctx context.Context) {
 	u.writeStatus(ctx, source.Fix{}, false, u.now())
 }
 
+// writeStatus writes a geo_status point at most once per minInterval, except
+// that a change of connection state is written immediately.
 func (u *uploader) writeStatus(ctx context.Context, f source.Fix, connected bool, now time.Time) {
-	if !u.due(u.lastStatus, now) {
+	if connected == u.lastConnected && !u.due(u.lastStatus, now) {
 		return
 	}
-	u.lastStatus = now
+	u.lastStatus, u.lastConnected = now, connected
 	if err := u.w.Write(ctx, influx.StatusLine(f, connected, now)); err != nil {
 		log.Printf("geoinflux: status write failed: %v", err)
 	}

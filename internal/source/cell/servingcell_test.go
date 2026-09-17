@@ -66,6 +66,7 @@ func TestServingCellReaderLogsFailures(t *testing.T) {
 	}{
 		{"runner error", "", errors.New("modem busy"), "modem busy"},
 		{"no qeng lines", "ERROR\r\n", nil, "no serving-cell lines"},
+		{"truncated prefixed LTE", "AT+QENG=\"servingcell\"\r\n+QENG: \"servingcell\",\"NOCONN\",\"LTE\",\"FDD\",262\r\n", nil, "no serving-cell lines"},
 		{"no geolocatable cell", `+QENG: "NR5G-NSA",262,03,451,-78,26,-10,638304,78,9,1`, nil, "no geolocatable"},
 	}
 	for _, tc := range tests {

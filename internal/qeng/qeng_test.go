@@ -1,6 +1,7 @@
 package qeng_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/ckeller42/celloc/internal/qeng"
@@ -135,24 +136,28 @@ func TestSelectGeolocatablePrefersLTEOverNR5GSA(t *testing.T) {
 func TestParsePrefixedServingCell(t *testing.T) {
 	const prefixedLTE = `+QENG: "servingcell","NOCONN","LTE","FDD",262,03,1684B3E,204,3350,7,5,5,E8E5,-83,-14,-47,17,13,100,-`
 	tests := []struct {
-		name    string
-		in      string
-		wantOK  bool
-		wantLTE bool
+		name        string
+		in          string
+		wantOK      bool
+		wantLTE     bool
+		wantNoCells bool // parser must report ErrNoCells
 	}{
-		{"prefixed LTE", prefixedLTE, true, true},
-		{"prefixed LTE CRLF", prefixedLTE + "\r\n\r\nOK\r\n", true, true},
-		{"prefixed LTE with echo", "AT+QENG=\"servingcell\"\r\n" + prefixedLTE + "\r\nOK\r\n", true, true},
-		{"search state only", `+QENG: "servingcell","SEARCH"`, false, false},
-		{"limited service only", `+QENG: "servingcell","LIMSRV"` + "\r\n", false, false},
-		{"prefix only", `+QENG: "servingcell"`, false, false},
-		{"truncated prefixed LTE", `+QENG: "servingcell","NOCONN","LTE","FDD",262`, false, false},
-		{"prefixed NR5G-SA", `+QENG: "servingcell","NOCONN","NR5G-SA","TDD",262,03,12345ABC,500,E8E5,627264,78`, true, false},
-		{"state line then unprefixed LTE", `+QENG: "servingcell","CONNECT"` + "\r\n" + lteLine + "\r\n", true, true},
+		{name: "prefixed LTE", in: prefixedLTE, wantOK: true, wantLTE: true},
+		{name: "prefixed LTE CRLF", in: prefixedLTE + "\r\n\r\nOK\r\n", wantOK: true, wantLTE: true},
+		{name: "prefixed LTE with echo", in: "AT+QENG=\"servingcell\"\r\n" + prefixedLTE + "\r\nOK\r\n", wantOK: true, wantLTE: true},
+		{name: "search state only", in: `+QENG: "servingcell","SEARCH"`, wantNoCells: true},
+		{name: "limited service only", in: `+QENG: "servingcell","LIMSRV"` + "\r\n", wantNoCells: true},
+		{name: "prefix only", in: `+QENG: "servingcell"`, wantNoCells: true},
+		{name: "truncated prefixed LTE", in: `+QENG: "servingcell","NOCONN","LTE","FDD",262`, wantNoCells: true},
+		{name: "prefixed NR5G-SA", in: `+QENG: "servingcell","NOCONN","NR5G-SA","TDD",262,03,12345ABC,500,E8E5,627264,78`, wantOK: true},
+		{name: "state line then unprefixed LTE", in: `+QENG: "servingcell","CONNECT"` + "\r\n" + lteLine + "\r\n", wantOK: true, wantLTE: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cells, err := qeng.ParseServingCell(tc.in)
+			if tc.wantNoCells != errors.Is(err, qeng.ErrNoCells) {
+				t.Fatalf("err=%v, wantNoCellsls=%v", err, tc.wantNoCells)
+			}
 			got, ok := qeng.SelectGeolocatable(cells)
 			if ok != tc.wantOK {
 				t.Fatalf("ok=%v want %v (cells=%+v err=%v)", ok, tc.wantOK, cells, err)

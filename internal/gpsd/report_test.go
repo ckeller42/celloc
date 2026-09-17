@@ -3,7 +3,6 @@ package gpsd_test
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"strings"
 	"testing"
 	"time"
@@ -67,7 +66,7 @@ func TestSKYEmptyHasNoFakeDOP(t *testing.T) {
 }
 
 func TestFixFromTPV_NoFix(t *testing.T) {
-	got := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 0})
+	got, _ := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 0})
 	if got.HasFix() || got.Source != "" {
 		t.Fatalf("no-fix TPV should yield empty fix: %+v", got)
 	}
@@ -102,7 +101,7 @@ func TestTPVFromWifiFix(t *testing.T) {
 			t.Fatalf("wifi TPV must not contain %s: %s", k, b)
 		}
 	}
-	back := gpsd.FixFromTPV(tpv)
+	back, _ := gpsd.FixFromTPV(tpv)
 	if back.Source != "wifi" || back.APCount != 7 {
 		t.Fatalf("FixFromTPV lost wifi info: %+v", back)
 	}
@@ -120,7 +119,7 @@ func TestFixFromTPV_ModeWithoutCoordsIsNoFix(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := gpsd.FixFromTPV(tc.tpv); got.HasFix() {
+			if got, _ := gpsd.FixFromTPV(tc.tpv); got.HasFix() {
 				t.Fatalf("TPV without coordinates must not be a fix (bogus 0,0): %+v", got)
 			}
 		})
@@ -129,30 +128,19 @@ func TestFixFromTPV_ModeWithoutCoordsIsNoFix(t *testing.T) {
 
 func TestFixFromTPV_KeepsTime(t *testing.T) {
 	lat, lon := 48.7, 9.1
-	got := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 2, Lat: &lat, Lon: &lon, Time: "2026-06-28T12:00:00.000Z"})
-	if !got.HasFix() || !got.Time.Equal(time.Date(2026, 6, 28, 12, 0, 0, 0, time.UTC)) {
+	got, err := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 2, Lat: &lat, Lon: &lon, Time: "2026-06-28T12:00:00.000Z"})
+	if err != nil || !got.HasFix() || !got.Time.Equal(time.Date(2026, 6, 28, 12, 0, 0, 0, time.UTC)) {
 		t.Fatalf("want fix with parsed time: %+v", got)
 	}
 }
 
-func TestFixFromTPV_LogsBadTime(t *testing.T) {
-	var buf bytes.Buffer
-	prev := log.Writer()
-	log.SetOutput(&buf)
-	t.Cleanup(func() { log.SetOutput(prev) })
-
+func TestFixFromTPV_BadTimeIsReported(t *testing.T) {
 	lat, lon := 48.7, 9.1
-	for i := 0; i < 3; i++ {
-		got := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 2, Lat: &lat, Lon: &lon, Time: "yesterday-ish"})
-		if !got.Time.IsZero() {
-			t.Fatalf("unparsable time must stay zero: %v", got.Time)
-		}
+	got, err := gpsd.FixFromTPV(gpsd.TPV{Class: "TPV", Mode: 2, Lat: &lat, Lon: &lon, Time: "yesterday-ish"})
+	if err == nil || !strings.Contains(err.Error(), "yesterday-ish") {
+		t.Fatalf("want error naming the bad time, got %v", err)
 	}
-	out := buf.String()
-	if !strings.Contains(out, "yesterday-ish") {
-		t.Fatalf("bad TPV time not logged:\n%s", out)
-	}
-	if n := strings.Count(out, "\n"); n != 1 {
-		t.Fatalf("want 1 rate-limited log line, got %d:\n%s", n, out)
+	if !got.HasFix() || !got.Time.IsZero() {
+		t.Fatalf("position must survive with a zero time: %+v", got)
 	}
 }
