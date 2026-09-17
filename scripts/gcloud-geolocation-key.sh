@@ -135,11 +135,33 @@ print(p[0]["name"].rsplit("/",1)[1] if p else "")' || true)
   else
     resp=$(curl -sS -X PATCH "$url" -H "Authorization: Bearer $tok" \
       -H "X-Goog-User-Project: $PROJECT" -H "Content-Type: application/json" -d "$body")
+    # Prints "ERROR: …", "PENDING", or the granted value once reconciliation is done.
+    state() {
+      python3 -c 'import sys,json
+d=json.load(sys.stdin); e=d.get("error")
+if e: print("ERROR: "+e.get("message","")); sys.exit()
+g=d.get("quotaConfig",{}).get("grantedValue")
+print("PENDING" if d.get("reconciling") or g is None else g)'
+    }
+    granted=$(printf '%s' "$resp" | state)
+    # Don't deploy the key until Cloud Quotas has finished applying the cap.
+    tries=0
+    while [ "$granted" = PENDING ] && [ "$tries" -lt 24 ]; do
+      sleep 5; tries=$((tries + 1))
+      granted=$(curl -sS "$base/$pref" -H "Authorization: Bearer $tok" \
+        -H "X-Goog-User-Project: $PROJECT" | state)
+    done
     unset tok
-    granted=$(printf '%s' "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); e=d.get("error"); print("ERROR: "+e["message"]) if e else print(d.get("quotaConfig",{}).get("grantedValue","pending"))')
     case "$granted" in
       ERROR:*) echo "$granted" >&2; echo "(a freshly enabled API can take a few minutes; re-run)" >&2; exit 1 ;;
+      PENDING) echo "quota preference still reconciling after 2 min; re-run before deploying the key" >&2; exit 1 ;;
+      *[!0-9]*|'') echo "unexpected granted value: $granted" >&2; exit 1 ;;
     esac
+    # A lower granted value is a stricter cap and fine; higher (or unlimited) is not.
+    if [ "${#granted}" -gt 18 ] || [ "$granted" -gt "$CAP" ]; then
+      echo "daily cap not applied: granted $granted > requested $CAP; not deploying the key" >&2
+      exit 1
+    fi
     log "daily cap granted: $granted"
   fi
 fi
