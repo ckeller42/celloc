@@ -13,8 +13,16 @@ then install:
 ```sh
 echo 'src/gz celloc https://ckeller42.github.io/celloc/aarch64_cortex-a53' \
   >> /etc/opkg/customfeeds.conf
-opkg update && opkg install geolocd
+opkg update; opkg install geolocd
 ```
+
+Use `;`, not `&&`: `opkg update` exits non-zero if **any** configured feed fails
+to download (a flaky vendor feed is enough), and `&&` would then skip the install
+even though the celloc feed was fetched fine.
+
+**Signature checking:** the celloc feed is unsigned. GL-iNet 23.05 firmware has
+no `check_signature` in `/etc/opkg.conf`, so it installs as-is; stock OpenWrt may
+enable it — check with `grep check_signature /etc/opkg.conf`.
 
 > **HTTPS support required.** opkg needs TLS to fetch from `https://`. GL-iNet
 > firmware ships it, but if `opkg update` fails on the feed URL, install the TLS
@@ -30,7 +38,7 @@ opkg update && opkg install geolocd
 
 `opkg install geolocd` resolves the newest version in the feed; the feed keeps
 older versions too, so a specific pin stays installable. Upgrading later is just
-`opkg update && opkg upgrade geolocd`.
+`opkg update; opkg upgrade geolocd`.
 
 #### Method B — download a release `.ipk` (fallback / offline)
 
@@ -201,34 +209,39 @@ installed package are **wiped**. A _keep-settings_ sysupgrade preserves everythi
 under `/etc/config`, so `/etc/config/geolocd` — including a `google_key` you set
 there — survives; only the package (binary + service) needs reinstalling.
 
-### Auto-restore from the feed (recommended)
+### Auto-restore after a flash (recommended)
 
-Because the opkg feed makes `geolocd` installable by name, you can have the router
-**reinstall it automatically on the first boot after a flash**. Scripts in
-`/etc/uci-defaults/` run once at first boot (then delete themselves on success),
-and files listed in `/etc/sysupgrade.conf` are carried across a keep-settings
-flash. Combine the two — do this once on the running router:
+Keep a copy of the package on the router and have `/etc/rc.local` reinstall it
+on boot if the binary is missing. Do this once on the running router (copy the
+`.ipk` over first, e.g. `scp geolocd_<version>_aarch64_cortex-a53.ipk root@<router>:/tmp/`):
 
 ```sh
-cat > /etc/uci-defaults/99-geolocd-autoinstall <<'EOF'
-#!/bin/sh
-# Auto-reinstall geolocd from the celloc opkg feed after a sysupgrade.
-# uci-defaults runs this once at first boot; returning 0 removes it.
-opkg update && opkg install geolocd
-exit 0
-EOF
-chmod +x /etc/uci-defaults/99-geolocd-autoinstall
+cp /tmp/geolocd_*_aarch64_cortex-a53.ipk /etc/geolocd.ipk
 
-# Preserve the script across the flash (and re-arm it for the next one).
-grep -qxF '/etc/uci-defaults/99-geolocd-autoinstall' /etc/sysupgrade.conf \
-  || echo '/etc/uci-defaults/99-geolocd-autoinstall' >> /etc/sysupgrade.conf
+# Carry the ipk across a keep-settings sysupgrade.
+grep -qxF '/etc/geolocd.ipk' /etc/sysupgrade.conf \
+  || echo '/etc/geolocd.ipk' >> /etc/sysupgrade.conf
+
+# Idempotent guard in rc.local, inserted before its final `exit 0`.
+grep -qF '/etc/geolocd.ipk' /etc/rc.local \
+  || sed -i '/^exit 0/i [ -x /usr/bin/geolocd ] || opkg install /etc/geolocd.ipk' /etc/rc.local
+
+sysupgrade -l | grep -E 'geolocd|rc.local'   # verify both are kept
 ```
 
-After the next _keep-settings_ sysupgrade the script is restored, runs on first
-boot, reinstalls `geolocd` from the feed, and then removes itself. Because it
-self-removes on success, re-run the block above (or just re-add the script) to
-re-arm it for a subsequent flash. This needs the feed reachable at boot and the
-HTTPS bits present (see [Method A](#method-a--opkg-feed-recommended-install-by-name)).
+Why this and not a feed install from `/etc/uci-defaults/`: `/etc/config` and
+`/etc/rc.local` are kept by a keep-settings sysupgrade by default, `/root` is not,
+and files listed in `/etc/sysupgrade.conf` are added (check with `sysupgrade -l`).
+uci-defaults scripts run inside `/etc/init.d/boot` (START=10), before the network
+is up (netifd, START=20), so an `opkg update` there fails — and a script that
+exits 0 deletes itself anyway. `rc.local` runs late, needs no network (the ipk is
+local), stays armed for every future flash, and is a no-op while geolocd is
+installed. When you upgrade geolocd, refresh `/etc/geolocd.ipk` too.
+
+Reinstalling over a kept `/etc/config/geolocd` prints an
+"Existing conffile … is different from the conffile in the new package" message
+and leaves the package default as `/etc/config/geolocd-opkg`; the kept config
+(including the key) wins.
 
 > **The `google_key` is not restored by this.** It is a secret and is never
 > shipped in the package. If your `/etc/config/geolocd` survived the flash
@@ -243,16 +256,17 @@ HTTPS bits present (see [Method A](#method-a--opkg-feed-recommended-install-by-n
 
 ### Manual restore
 
-Without the auto-install script, restore in one line — from the feed:
+Without the rc.local guard, restore in one line — from the feed:
 
 ```sh
-opkg update && opkg install geolocd    # config (key) is retained; service re-enables
+opkg update; opkg install geolocd    # config (key) is retained; service re-enables
 ```
 
-or from a `.ipk` you kept on the device (e.g. `/root/`) or on the Pi:
+or from the `.ipk` kept on the device (`/root/` does not survive a flash —
+use `/etc/geolocd.ipk` as above) or copied over from the Pi:
 
 ```sh
-opkg install /root/geolocd_*.ipk
+opkg install /etc/geolocd.ipk
 ```
 
 ## Security

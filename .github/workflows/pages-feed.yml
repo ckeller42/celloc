@@ -1,17 +1,26 @@
 name: Pages feed (opkg)
 
-# Publishes a GitHub Pages opkg feed so the router can `opkg update &&
+# Publishes a GitHub Pages opkg feed so the router can `opkg update;
 # opkg install geolocd` by name. Runs after release.yml has published a release
 # (which builds and attaches the .ipk assets); this workflow only *indexes and
 # serves* those assets — it never rebuilds them, so the feed is byte-identical
 # to the Releases downloads and there is no duplicated Go/ipk build logic.
 #
+# Trigger: `workflow_run` on the Release workflow, NOT `release: published`.
+# release.yml publishes with the default GITHUB_TOKEN, and events caused by
+# GITHUB_TOKEN never start other workflows — except workflow_run. workflow_run
+# also runs on the default-branch ref, which the `github-pages` environment's
+# branch policy (main only) accepts; a `release` event would run on the tag ref
+# and be rejected. The trigger payload is deliberately not used: every run
+# rebuilds the feed from ALL published (non-draft, non-prerelease) releases.
+#
 # One-time manual prerequisite (a workflow cannot enable Pages on itself):
 #   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch: {}
 
 permissions:
@@ -33,6 +42,8 @@ env:
 
 jobs:
   build:
+    # Only after a successful Release run (or a manual dispatch).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -52,12 +63,14 @@ jobs:
           mkdir -p "$dest"
           # Accumulate: pull each published release's *versioned* ipk for this
           # arch so `opkg install geolocd` resolves the newest while older pins
-          # stay installable. The versionless copy (geolocd_<arch>.ipk) is a
+          # stay installable (opkg-make-index -a below keeps every version).
+          # Prereleases are excluded: opkg splits the version on the LAST '-',
+          # so v1.0.0-rc1 would sort above v1.0.0 forever. The versionless copy (geolocd_<arch>.ipk) is a
           # Releases-only download alias — it duplicates Package/Version, so it
           # is excluded from the index (the --pattern needs a version segment,
           # and the rm below is a belt-and-suspenders guard).
-          tags=$(gh release list --limit 200 --json tagName,isDraft \
-                   --jq '.[] | select(.isDraft == false) | .tagName')
+          tags=$(gh release list --limit 200 --json tagName,isDraft,isPrerelease \
+                   --jq '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName')
           for t in $tags; do
             # Only pull from releases that actually carry a versioned ipk for
             # this arch. Gating on the asset list (instead of `|| true`) means a
@@ -78,9 +91,10 @@ jobs:
         run: |
           set -eu
           dest="public/${FEED_ARCH}"
+          # -a: index ALL versions, not just the newest per package.
           PYTHONPATH="$RUNNER_TEMP/opkg-utils" \
             python3 "$RUNNER_TEMP/opkg-utils/opkg-make-index" \
-              --checksum sha256 "$dest" > "$dest/Packages"
+              -a --checksum sha256 "$dest" > "$dest/Packages"
           gzip -9 -kf "$dest/Packages"
           echo "--- Packages ---"; cat "$dest/Packages"
 
