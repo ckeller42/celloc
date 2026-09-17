@@ -1,4 +1,5 @@
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# opkg splits version/revision on the last "-", so dev builds turn git-describe dashes into dots.
+VERSION ?= $(shell (git describe --tags --always --dirty 2>/dev/null || echo dev) | tr - .)
 ARCH    ?= aarch64_cortex-a53
 
 .PHONY: test lint build ipk clean
