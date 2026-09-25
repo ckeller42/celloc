@@ -35,7 +35,8 @@ reviews:
         <ANGLE_BRACKET> or AIza... ellipsis stand-ins) are NOT findings. Explicitly ALLOWED and not a finding: naming the
         hardware and software in use (e.g. GL-iNet GL-E5800, Quectel
         modem models, Raspberry Pi models, ESP32/M5Stack boards, OpenWrt
-        versions), the project's own public URLs (github.com/ckeller42/
+        versions), GL.iNet factory-default addresses (192.168.8.1 and the
+        192.168.8.0/24 LAN, identical on every GL.iNet router), the project's own public URLs (github.com/ckeller42/
         celloc, ckeller42.github.io), generic system paths
         (/etc/config/geolocd), and the author's public GitHub handle.
     - path: "**/*.go"
