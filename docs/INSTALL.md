@@ -93,8 +93,8 @@ one request — WiFi drives the fine fix and the cell anchors it when APs are sp
 by default. It needs a **Google Geolocation API key**:
 
 1. Create a Google Cloud project and enable the **Geolocation API**.
-2. Enable billing (the free tier covers ~10,000 requests/month; the default
-   5-minute poll interval uses roughly 8,600 requests/month).
+2. Enable billing (the free tier covers 10,000 requests/month; the default
+   5-minute poll interval uses 288 requests/day, i.e. 8,928 in a 31-day month).
 3. Create an API key (restrict it to the Geolocation API).
 4. Set it on the router:
 
@@ -147,6 +147,18 @@ When WiFi resolves, expect a `TPV mode=2` with a `wifix` object and an `eph`
 far below the ~1.5 km cell radius (tens of metres where APs are well-mapped).
 If WiFi is not resolving, `logread -e geolocd` will show the reason.
 
+### Command-line flags
+
+All configuration comes from uci; `geolocd` has a single flag:
+
+| Flag | Default | Description |
+|---|---|---|
+| `-stream` | `1s` | How often the gpsd server streams a TPV to watching clients |
+
+The procd service starts `geolocd` without flags, so the default applies. The
+stream cadence is independent of `wifi_interval`: clients receive the cached
+fix every `-stream`, while the provider is queried once per `wifi_interval`.
+
 ## Pi uploader (`geoinflux`)
 
 `geoinflux` is a gpsd client that reads fixes from `geolocd` on the router and
@@ -180,6 +192,21 @@ sudo "${EDITOR:-vi}" /etc/buspi/geo.env   # set GPSD_ADDR, INFLUX_URL, token, or
 Tailscale IP). The token is read from the environment only — never passed on the
 command line. See [SECURITY.md](../SECURITY.md).
 
+Every setting except the token can also be given as a flag; a flag overrides its
+environment variable, which overrides the built-in default:
+
+| Flag | Env var | Default | Description |
+|---|---|---|---|
+| `-gpsd` | `GPSD_ADDR` | `192.168.8.1:2947` | Router gpsd address |
+| `-influx-url` | `INFLUX_URL` | `http://localhost:8086` | InfluxDB base URL |
+| `-org` | `INFLUX_ORG` | `home` | InfluxDB org |
+| `-bucket` | `INFLUX_BUCKET` | `buspi` | InfluxDB bucket |
+| `-min-interval` | `UPLOAD_MIN_INTERVAL` | `30s` | Minimum time between `geo` writes (and between `geo_status` heartbeats) |
+| — | `INFLUXDB_TOKEN` | _(required)_ | InfluxDB write token; env only, `geoinflux` exits if unset |
+
+`UPLOAD_MIN_INTERVAL` takes a Go duration (`30s`, `2m`); an unparsable value
+silently falls back to the default.
+
 ### 3. Install and start the service
 
 ```sh
@@ -189,8 +216,46 @@ sudo systemctl enable --now geoinflux
 journalctl -u geoinflux -f      # watch it connect and write points
 ```
 
-Fixes land in the configured bucket as the `geo` measurement (`source=cell`),
-identical to the legacy schema, so existing Grafana panels keep working.
+### What gets written
+
+`geoinflux` writes two measurements to the configured bucket, posting with
+`precision=ns`.
+
+**`geo`** — one point per fix (TPV `mode>=2`), at most once per `-min-interval`.
+The point is stamped with the fix's own time from the TPV, so a fix uploaded
+late is stored at the time it was taken (a TPV without a time gets InfluxDB's
+server time). The tags and fields depend on what resolved the fix:
+
+```text
+geo,source=wifi lat=<f>,lon=<f>,range_m=<n>i,ap_count=<n>i <ns>
+geo,source=cell,radio=<LTE|NR5G-SA> lat=<f>,lon=<f>,range_m=<n>i,mcc=<n>i,mnc=<n>i,cid=<n>i,tac=<n>i <ns>
+```
+
+- `source=wifi` — the provider resolved the WiFi scan (plus the serving cell).
+  Carries `ap_count` (APs sent) and has **no** `radio` tag or cell fields.
+- `source=cell` — only the serving cell anchored the fix. This line keeps the
+  legacy `geo` schema (tags, fields and field order), so existing cell-based
+  Grafana panels keep working; panels that filter on `source="cell"` will not
+  show WiFi fixes.
+
+`range_m` is the reported error radius (gpsd `eph`) in metres, rounded down.
+
+**`geo_status`** — an uploader heartbeat, written whether or not there is a fix:
+
+```text
+geo_status mode=<n>i,fix_age_s=<f>,connected=<bool> <now-ns>
+```
+
+| Field | Meaning |
+|---|---|
+| `mode` | gpsd TPV mode from the router (`2` = fix, below `2` = no fix); `0` while disconnected |
+| `fix_age_s` | Seconds since the fix's own time (ms resolution), `-1` when the TPV has no time |
+| `connected` | `false` while the router's gpsd socket is unreachable |
+
+It is written at most once per `-min-interval` while TPVs arrive, and
+immediately whenever connectivity changes (connect or disconnect). This tells a
+dead uploader (no points at all) apart from an unreachable router
+(`connected=false`), no fix (`mode<2`) and a stale fix (growing `fix_age_s`).
 
 ## Build from source
 

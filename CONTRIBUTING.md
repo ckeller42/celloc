@@ -24,13 +24,24 @@ pre-commit install --hook-type pre-push
 Or run directly:
 
 ```sh
-make test    # go test ./... -race + coverage
-make lint    # golangci-lint v2 (run + fmt)
+make test    # go test ./... -race, writes cover.out (no coverage threshold)
+make lint    # golangci-lint run ./... (gofumpt is checked via .golangci.yml formatters)
 make ipk     # build the OpenWrt .ipk (needs GNU ar; CI builds releases)
 ```
 
+`make lint` only reports: an unformatted file fails the run but is not
+rewritten. Fix formatting with `golangci-lint fmt` (or `gofumpt -w .`).
+
 Requirements: Go 1.23+, `golangci-lint` v2, `gofumpt`. The coverage gate is
-**≥85% over `./internal/...`**; don't weaken assertions to hit it.
+**≥85% over `./internal/...`** and is enforced **in CI only** (the `test` job's
+"Coverage gate" step) — `make test` records coverage but does not fail on it.
+Check locally with:
+
+```sh
+go test ./internal/... -coverprofile=internal.out && go tool cover -func=internal.out | tail -1
+```
+
+Don't weaken assertions to hit it.
 
 ## Conventions
 
