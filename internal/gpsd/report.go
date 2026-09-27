@@ -106,6 +106,9 @@ const timeFormat = "2006-01-02T15:04:05.000Z07:00"
 
 // TPVFromFix builds a TPV from a source.Fix, flagging cell fixes honestly:
 // mode=2, epx=epy=eph=range, no alt/speed; no-fix -> mode 0 with no coordinates.
+// A wifi fix carries the wifix extension and a cell fix (Source "cell", or cell
+// identifiers present) carries cellfix, so geoinflux can attribute it; a fix
+// with neither carries no extension and geoinflux writes no geo point for it.
 func TPVFromFix(f source.Fix, device string) TPV {
 	t := TPV{Class: "TPV", Device: device, Mode: f.Mode}
 	if !f.HasFix() {
@@ -119,15 +122,16 @@ func TPVFromFix(f source.Fix, device string) TPV {
 	switch {
 	case f.Source == "wifi":
 		t.WifiFix = &WifiFix{APCount: f.APCount}
-	case f.MCC != 0 || f.CID != 0:
+	case f.Source == "cell" || f.MCC != 0 || f.CID != 0:
 		t.CellFix = &CellFix{Radio: f.Radio, MCC: f.MCC, MNC: f.MNC, CID: f.CID, TAC: f.TAC, Range: int(f.EPH)}
 	}
 	return t
 }
 
 // FixFromTPV reconstructs a source.Fix from a received TPV (the inverse of
-// TPVFromFix), used by the Pi uploader. Cell identifiers come from the cellfix
-// extension; a TPV without a fix yields Mode 0, and so does a TPV claiming a fix
+// TPVFromFix), used by the Pi uploader. Source is "cell" (with the cell
+// identifiers) from the cellfix extension, "wifi" from wifix, and empty when the
+// TPV carries neither — not a celloc fix, which influx.FixLine refuses; a TPV without a fix yields Mode 0, and so does a TPV claiming a fix
 // without both coordinates (never turn a missing position into 0,0).
 //
 // The error is non-nil only when the TPV time is unparsable; the returned Fix is

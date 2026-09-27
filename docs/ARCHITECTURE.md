@@ -54,7 +54,9 @@ Neither a WiFi nor a cell fix is a GPS fix. It is emitted as TPV `mode=2` with
 `alt`/`speed`/`track`. A no-fix or stale position is `mode=0` with no coordinates.
 A WiFi-dominant fix carries a non-standard `wifix` object (`ap_count`); a
 cell-only fix carries `cellfix` (mcc/mnc/cid/tac/radio). Both are ignored by
-standard gpsd clients and read by `geoinflux` to tag the InfluxDB point.
+standard gpsd clients and read by `geoinflux` to tag the InfluxDB point; a fix
+TPV carrying neither is not a celloc fix, and `geoinflux` writes no `geo` point
+for it rather than invent a `source` tag.
 
 ## Data flow (one cycle)
 
@@ -72,7 +74,9 @@ standard gpsd clients and read by `geoinflux` to tag the InfluxDB point.
 4. `geoinflux` (Pi) watches the socket, converts each TPV back to a `Fix`
    (`FixFromTPV`), and for `mode>=2` writes `influx.FixLine` (measurement
    `geo`, stamped with the fix's own time) to the configured bucket (default
-   `buspi`), at most once per `-min-interval`.
+   `buspi`), at most once per `-min-interval`. A fix with neither `wifix` nor
+   `cellfix` is skipped (logged, rate-limited); `FixLine` refuses it with
+   `ErrUnattributedFix`.
 5. Alongside, `geoinflux` writes an `influx.StatusLine` heartbeat (measurement
    `geo_status`: `mode`, `fix_age_s`, `connected`) at most once per
    `-min-interval`, and immediately when the gpsd connection drops or comes

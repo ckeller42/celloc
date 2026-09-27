@@ -144,3 +144,42 @@ func TestFixFromTPV_BadTimeIsReported(t *testing.T) {
 		t.Fatalf("position must survive with a zero time: %+v", got)
 	}
 }
+
+// TestFixSourceAttribution pins how a fix's source crosses the gpsd socket: the
+// wifix/cellfix extension is the only carrier, so a fix geolocd serves must
+// always get one, and a TPV with neither yields an empty Source (which
+// influx.FixLine refuses rather than writing "source=").
+func TestFixSourceAttribution(t *testing.T) {
+	ts := time.Date(2026, 6, 28, 12, 0, 0, 0, time.UTC)
+	base := source.Fix{Time: ts, Mode: 2, Lat: 48.7, Lon: 9.1, EPH: 900, EPX: 900, EPY: 900}
+	with := func(mut func(*source.Fix)) source.Fix { f := base; mut(&f); return f }
+	tests := []struct {
+		name       string
+		fix        source.Fix
+		wantCell   bool
+		wantWifi   bool
+		wantSource string
+	}{
+		{"cell with ids", with(func(f *source.Fix) { f.Source, f.Radio, f.MCC, f.CID = "cell", "LTE", 262, 1 }), true, false, "cell"},
+		{"cell with zero ids keeps cellfix", with(func(f *source.Fix) { f.Source, f.Radio = "cell", "LTE" }), true, false, "cell"},
+		{"legacy untagged fix with cell ids", with(func(f *source.Fix) { f.MCC, f.CID = 262, 1 }), true, false, "cell"},
+		{"wifi", with(func(f *source.Fix) { f.Source, f.APCount = "wifi", 5 }), false, true, "wifi"},
+		{"no source, no ids: no extension", base, false, false, ""},
+		{"unknown source: no extension", with(func(f *source.Fix) { f.Source = "gnss" }), false, false, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tpv := gpsd.TPVFromFix(tc.fix, "cell0")
+			if (tpv.CellFix != nil) != tc.wantCell || (tpv.WifiFix != nil) != tc.wantWifi {
+				t.Fatalf("extensions: cellfix=%+v wifix=%+v, want cell=%v wifi=%v", tpv.CellFix, tpv.WifiFix, tc.wantCell, tc.wantWifi)
+			}
+			back, err := gpsd.FixFromTPV(tpv)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !back.HasFix() || back.Source != tc.wantSource {
+				t.Fatalf("FixFromTPV: HasFix=%v Source=%q, want fix with Source %q", back.HasFix(), back.Source, tc.wantSource)
+			}
+		})
+	}
+}
