@@ -159,3 +159,58 @@ func TestUploaderLogsBadTPVTimeRateLimited(t *testing.T) {
 		t.Fatalf("fix with bad time must still be written: %q", w.lines)
 	}
 }
+
+// TestUploaderSkipsUnattributedFix: a mode>=2 TPV with neither wifix nor
+// cellfix is not a celloc fix. It must never become a geo point (least of all
+// one with an empty source tag), but the heartbeat still reports its mode and
+// the skip is logged, rate-limited.
+func TestUploaderSkipsUnattributedFix(t *testing.T) {
+	bare := func(ts time.Time) gpsd.TPV {
+		tpv := fixTPV(ts)
+		tpv.WifiFix = nil
+		return tpv
+	}
+	tests := []struct {
+		name      string
+		tpvs      func(now time.Time) []gpsd.TPV
+		wantGeo   int
+		wantSkips int
+	}{
+		{"bare fix only", func(now time.Time) []gpsd.TPV { return []gpsd.TPV{bare(now), bare(now), bare(now)} }, 0, 1},
+		{"bare then wifi is written immediately", func(now time.Time) []gpsd.TPV { return []gpsd.TPV{bare(now), fixTPV(now)} }, 1, 1},
+		{"cellfix is attributed", func(now time.Time) []gpsd.TPV {
+			tpv := bare(now)
+			tpv.CellFix = &gpsd.CellFix{Radio: "LTE", MCC: 262, MNC: 3, CID: 1, TAC: 2}
+			return []gpsd.TPV{tpv}
+		}, 1, 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := captureLog(t)
+			now := time.Unix(1789632000, 0)
+			w := &fakeWriter{}
+			u := &uploader{w: w, minInterval: 30 * time.Second, now: func() time.Time { return now }}
+			for _, tpv := range tc.tpvs(now) {
+				now = now.Add(time.Second)
+				u.onTPV(context.Background(), tpv)
+			}
+			for _, l := range w.lines {
+				if strings.Contains(l, "source=,") || strings.Contains(l, "source= ") {
+					t.Fatalf("empty source tag written: %q", l)
+				}
+			}
+			if got := count(w.lines, "geo,"); got != tc.wantGeo {
+				t.Fatalf("geo points = %d, want %d: %q", got, tc.wantGeo, w.lines)
+			}
+			if count(w.lines, "geo_status mode=2i,") < 1 {
+				t.Fatalf("heartbeat must still report mode=2: %q", w.lines)
+			}
+			if got := strings.Count(buf.String(), "skipping geo point"); got != tc.wantSkips {
+				t.Fatalf("skip logs = %d, want %d:\n%s", got, tc.wantSkips, buf.String())
+			}
+			if tc.wantSkips > 0 && !strings.Contains(buf.String(), "fix acquired (no wifix/cellfix") {
+				t.Fatalf("fix-acquired log must name the missing extension:\n%s", buf.String())
+			}
+		})
+	}
+}

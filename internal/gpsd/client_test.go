@@ -90,7 +90,7 @@ func TestWifiRoundTripToInfluxLine(t *testing.T) {
 	}
 	// The fix's own time survives the round trip as the point's ns timestamp.
 	const want = "geo,source=wifi lat=48.7701,lon=9.169,range_m=35i,ap_count=7i 1700000000000000000"
-	if got := influx.FixLine(back); got != want {
-		t.Fatalf("round-trip influx line = %q, want %q", got, want)
+	if got, err := influx.FixLine(back); err != nil || got != want {
+		t.Fatalf("round-trip influx line = %q (err %v), want %q", got, err, want)
 	}
 }

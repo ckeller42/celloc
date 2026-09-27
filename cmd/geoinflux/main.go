@@ -135,7 +135,7 @@ func (u *uploader) onTPV(ctx context.Context, tpv gpsd.TPV) {
 
 	switch {
 	case f.HasFix() && u.fixState != stateFix:
-		log.Printf("geoinflux: fix acquired (%s, eph=%.0fm)", f.Source, f.EPH)
+		log.Printf("geoinflux: fix acquired (%s, eph=%.0fm)", sourceLabel(f.Source), f.EPH)
 		u.fixState = stateFix
 	case !f.HasFix() && u.fixState != stateNoFix:
 		log.Printf("geoinflux: fix lost (router reports mode=%d)", f.Mode)
@@ -147,12 +147,29 @@ func (u *uploader) onTPV(ctx context.Context, tpv gpsd.TPV) {
 	if !f.HasFix() || !u.due(u.lastFix, now) {
 		return
 	}
+	line, err := influx.FixLine(f)
+	if err != nil {
+		// A mode>=2 TPV with neither wifix nor cellfix is not a celloc fix
+		// (e.g. -gpsd pointed at a real gpsd): the geo_status heartbeat above
+		// still records its mode, but no geo point is invented for it.
+		u.logs.Printf("geoinflux: skipping geo point: %v", err)
+		return
+	}
 	u.lastFix = now
-	if err := u.w.Write(ctx, influx.FixLine(f)); err != nil {
+	if err := u.w.Write(ctx, line); err != nil {
 		log.Printf("geoinflux: write failed: %v", err)
 		return
 	}
 	log.Printf("geoinflux: wrote %.4f,%.4f eph=%.0fm (%s)", f.Lat, f.Lon, f.EPH, f.Radio)
+}
+
+// sourceLabel names a fix's source for logs; an empty one is spelled out so
+// "fix acquired ()" can't hide that the TPV carried no celloc extension.
+func sourceLabel(s string) string {
+	if s == "" {
+		return "no wifix/cellfix"
+	}
+	return s
 }
 
 // disconnected records that the router's gpsd is unreachable.

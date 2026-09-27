@@ -3,8 +3,11 @@
 package influx
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ckeller42/celloc/internal/source"
@@ -13,6 +16,13 @@ import (
 // Measurement is the InfluxDB measurement name (kept identical to the original
 // glinet-geoloc.sh schema so existing Grafana panels keep working).
 const Measurement = "geo"
+
+// ErrUnattributedFix is returned (wrapped) by FixLine for a fix whose Source is
+// not one celloc emits ("wifi" or "cell"). geolocd tags every fix it serves via
+// the TPV's wifix/cellfix extension, so a fix without one did not come from
+// celloc's resolver: writing it would need an invented source tag (or an empty
+// one, which is invalid line protocol) and zero-valued cell fields.
+var ErrUnattributedFix = errors.New("influx: fix has no celloc source (neither wifix nor cellfix)")
 
 // FixLine renders a Fix as an InfluxDB line-protocol point, byte-identical to
 // the seed script's output:
@@ -23,35 +33,58 @@ const Measurement = "geo"
 // ?precision=ns) so a fix uploaded late is stored at the time it was taken.
 // A fix without a time gets no timestamp (InfluxDB assigns server time).
 //
+// Only Source "wifi" and "cell" are rendered; any other Source (notably the
+// empty one of a TPV that carried neither extension) returns an error wrapping
+// ErrUnattributedFix and no line. A tag whose value is empty (a cell fix
+// without a radio) is omitted rather than written as "radio=", which InfluxDB
+// rejects.
+//
 // Lat/lon are formatted with strconv.FormatFloat(-1) (shortest round-trippable
 // form). Values are numerically identical to the seed's raw JSON substring and
 // the schema/tags/field-order match byte-for-byte, but the float text may differ
 // in trailing zeros (seed "48.10" vs "48.1"); InfluxDB parses both identically.
-func FixLine(f source.Fix) string {
-	return fixFields(f) + timestamp(f.Time)
+func FixLine(f source.Fix) (string, error) {
+	switch f.Source {
+	case "wifi", "cell":
+		return fixFields(f) + timestamp(f.Time), nil
+	default:
+		return "", fmt.Errorf("%w: source=%q", ErrUnattributedFix, f.Source)
+	}
 }
 
 func fixFields(f source.Fix) string {
-	if f.Source == "wifi" {
-		return Measurement +
-			",source=wifi" +
-			" lat=" + strconv.FormatFloat(f.Lat, 'f', -1, 64) +
-			",lon=" + strconv.FormatFloat(f.Lon, 'f', -1, 64) +
-			",range_m=" + strconv.Itoa(int(f.EPH)) + "i" +
-			",ap_count=" + strconv.Itoa(f.APCount) + "i"
-	}
 	lat := strconv.FormatFloat(f.Lat, 'f', -1, 64)
 	lon := strconv.FormatFloat(f.Lon, 'f', -1, 64)
-	return Measurement +
-		",source=" + tagEscape(f.Source) +
-		",radio=" + tagEscape(f.Radio) +
+	rangeM := strconv.Itoa(int(f.EPH)) + "i"
+	if f.Source == "wifi" {
+		return Measurement + tags("source", f.Source) +
+			" lat=" + lat +
+			",lon=" + lon +
+			",range_m=" + rangeM +
+			",ap_count=" + strconv.Itoa(f.APCount) + "i"
+	}
+	return Measurement + tags("source", f.Source, "radio", f.Radio) +
 		" lat=" + lat +
 		",lon=" + lon +
-		",range_m=" + strconv.Itoa(int(f.EPH)) + "i" +
+		",range_m=" + rangeM +
 		",mcc=" + strconv.Itoa(f.MCC) + "i" +
 		",mnc=" + strconv.Itoa(f.MNC) + "i" +
 		",cid=" + strconv.FormatInt(f.CID, 10) + "i" +
 		",tac=" + strconv.Itoa(f.TAC) + "i"
+}
+
+// tags renders key/value pairs as ",k=v" line-protocol tags, escaping values
+// and omitting any pair whose value is empty: InfluxDB rejects an empty tag
+// value, and a tag that is absent is what an unknown value means anyway.
+func tags(kv ...string) string {
+	var b strings.Builder
+	for i := 0; i+1 < len(kv); i += 2 {
+		if kv[i+1] == "" {
+			continue
+		}
+		b.WriteString("," + kv[i] + "=" + tagEscape(kv[i+1]))
+	}
+	return b.String()
 }
 
 // StatusMeasurement is the heartbeat measurement written by StatusLine.

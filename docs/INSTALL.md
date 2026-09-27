@@ -240,6 +240,15 @@ geo,source=cell,radio=<LTE|NR5G-SA> lat=<f>,lon=<f>,range_m=<n>i,mcc=<n>i,mnc=<n
 
 `range_m` is the reported error radius (gpsd `eph`) in metres, rounded down.
 
+A `mode>=2` TPV that carries **neither** a `wifix` nor a `cellfix` object is
+not a celloc fix (`geolocd` attaches one of them to every fix it serves; a
+plain TPV means `-gpsd` points at some other gpsd). No `geo` point is written
+for it, since there is no honest `source` to tag it with. The `geo_status`
+heartbeat still records its `mode`, and `geoinflux` logs
+`skipping geo point: ...` (at most once a minute). A tag whose value is empty
+(for example a cell fix without a radio) is left out of the point; it is never
+written as `radio=`.
+
 **`geo_status`** — an uploader heartbeat, written whether or not there is a fix:
 
 ```text
