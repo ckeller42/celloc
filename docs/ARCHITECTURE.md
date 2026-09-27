@@ -22,7 +22,7 @@ injected interfaces.
 
 | Package | Kind | Responsibility |
 |---|---|---|
-| `internal/qeng` | pure | parse `AT+QENG="servingcell"` → cells; pick the LTE anchor |
+| `internal/qeng` | pure | parse `AT+QENG="servingcell"` → cells (skipping a leading `"servingcell",<state>` prefix); pick the geolocatable cell — LTE (also the NSA anchor), else NR5G-SA |
 | `internal/gpsd` | pure reports + I/O `Server`/`Client` | gpsd TPV/SKY/VERSION/POLL |
 | `internal/source` | pure | `Source` interface + `Fix`; priority `Select` |
 | `internal/source/cell` | I/O | `ServingCellReader` (AT+qeng → serving cell for blending) |
@@ -32,8 +32,9 @@ injected interfaces.
 | `internal/google` | pure `ParseResponse` + I/O `Client` | Google `geolocate` |
 | `internal/source/wifi` | I/O (compose) | scan + resolve + cache, behind a neutral `Resolver` |
 | `internal/atrun` | I/O (`Exec`) | run AT via `gl_modem` / `ubus` |
-| `internal/influx` | pure `FixLine` + I/O `Writer` (`Doer`) | line protocol + write |
+| `internal/influx` | pure `FixLine`/`StatusLine` + I/O `Writer` (`Doer`) | `geo` + `geo_status` line protocol + write (`precision=ns`) |
 | `internal/uciconf` | pure parse + I/O load | read `/etc/config/geolocd` via uci |
+| `internal/ratelog` | helper (injectable clock) | throttle repeated log lines (per key, once a minute by default) so a persistent failure doesn't flood the router's log buffer |
 | `cmd/geolocd` | wiring | uci → source → poll loop → gpsd server |
 | `cmd/geoinflux` | wiring | gpsd client → InfluxDB (reconnect, debounce) |
 
@@ -57,11 +58,23 @@ standard gpsd clients and read by `geoinflux` to tag the InfluxDB point.
 
 ## Data flow (one cycle)
 
-1. `geolocd` poll loop calls the WiFi `source.Fix`: `wifiscan` runs `iw scan`,
-   `cell.ServingCellReader` reads the serving cell (`atrun`+`qeng`), and the
-   provider (`google`/`unwiredlabs`) resolves the WiFi APs + cell together.
+1. `geolocd` poll loop (every `wifi_interval`) calls the WiFi `source.Fix`:
+   `wifiscan` runs `iw scan`, `cell.ServingCellReader` reads the serving cell
+   (`atrun`+`qeng`), and the provider (`google`/`unwiredlabs`) resolves the WiFi
+   APs + cell together. Each call is bounded by `pollTimeout` (60 s), and each
+   AT subprocess (`gl_modem`/`ubus`) by `atrun.ExecTimeout` (20 s), so a hung
+   modem helper or provider can't stall the loop. A failed or timed-out poll
+   falls back to the source's cached fix while it is younger than `StaleAfter`,
+   and otherwise serves no-fix (`mode=0`).
 2. The fix is cached (served until `StaleAfter`) and stored atomically.
-3. The gpsd `Server` streams `TPVFromFix` to watching clients every `stream`
-   interval and answers `?POLL`/`?WATCH`/`?VERSION`.
-4. `geoinflux` (Pi) watches the socket, converts each `mode>=2` TPV back to a
-   `Fix` (`FixFromTPV`), and writes `influx.FixLine` to the `buspi` bucket.
+3. The gpsd `Server` streams `TPVFromFix` to watching clients every `-stream`
+   interval (default 1 s) and answers `?POLL`/`?WATCH`/`?VERSION`.
+4. `geoinflux` (Pi) watches the socket, converts each TPV back to a `Fix`
+   (`FixFromTPV`), and for `mode>=2` writes `influx.FixLine` (measurement
+   `geo`, stamped with the fix's own time) to the configured bucket (default
+   `buspi`), at most once per `-min-interval`.
+5. Alongside, `geoinflux` writes an `influx.StatusLine` heartbeat (measurement
+   `geo_status`: `mode`, `fix_age_s`, `connected`) at most once per
+   `-min-interval`, and immediately when the gpsd connection drops or comes
+   back — so a dead uploader, an unreachable router, no fix and a stale fix
+   are distinguishable in InfluxDB. Schemas: [INSTALL](INSTALL.md#what-gets-written).
