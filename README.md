@@ -25,7 +25,7 @@ sparse, the serving cell still anchors the fix on its own.
 ## Components
 
 | Binary | Runs on | Role |
-|---|---|---|
+| --- | --- | --- |
 | `geolocd` | the router | AT + WiFi → position cache → gpsd server (`:2947`) |
 | `geoinflux` | the Pi / a host | gpsd client → InfluxDB uploader |
 

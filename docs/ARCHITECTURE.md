@@ -21,7 +21,7 @@ env, or wall-clock) so it is exhaustively table-testable; I/O sits behind small
 injected interfaces.
 
 | Package | Kind | Responsibility |
-|---|---|---|
+| --- | --- | --- |
 | `internal/qeng` | pure | parse `AT+QENG="servingcell"` → cells (skipping a leading `"servingcell",<state>` prefix); pick the geolocatable cell — LTE (also the NSA anchor), else NR5G-SA |
 | `internal/gpsd` | pure reports + I/O `Server`/`Client` | gpsd TPV/SKY/VERSION/POLL |
 | `internal/source` | pure | `Source` interface + `Fix`; priority `Select` |

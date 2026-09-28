@@ -16,10 +16,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
       - name: Vet
         run: go vet ./...
       - name: Test (race + coverage)
@@ -32,16 +32,35 @@ jobs:
           awk -v p="$pct" 'BEGIN { exit (p+0 >= 85) ? 0 : 1 }' || {
             echo "::error::internal coverage ${pct}% < 85%"; exit 1; }
 
-  lint:
+  # Lint/format/secret-scan: runs .pre-commit-config.yaml, the single source of
+  # truth for tool versions (golangci-lint, gitleaks, markdownlint-cli2,
+  # pre-commit-hooks). Go is needed because golangci-lint and gitleaks hooks
+  # are built from source at their pinned tags, and go-build-entrypoints runs go.
+  pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.23"
-      - uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
+          go-version-file: go.mod
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          version: v2.1.6
+          python-version: "3.13"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      # setup-go exports GOTOOLCHAIN=local; the gitleaks hook's go.mod needs a
+      # newer Go than ours (1.24.11 vs 1.23), so let `go` fetch the toolchain a
+      # hook module asks for. Our own module still builds with go.mod's version.
+      - run: echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
+      - run: pip install pre-commit==4.6.2
+      - name: pre-commit (all files)
+        run: pre-commit run --all-files --show-diff-on-failure
+      # The stock gitleaks hook scans only staged changes, i.e. nothing here;
+      # this manual-stage hook scans the whole checkout with the same version.
+      - name: gitleaks (whole tree)
+        run: pre-commit run --hook-stage manual gitleaks-dir --all-files
 
   build:
     runs-on: ubuntu-latest
@@ -57,10 +76,10 @@ jobs:
       GOARCH: ${{ matrix.goarch }}
       GOARM: ${{ matrix.goarm }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
       - run: go build ./...
       # Build the entrypoints explicitly so a missing/ignored cmd dir fails CI
       # (go build ./... silently skips a missing named package).
@@ -69,10 +88,10 @@ jobs:
   ipk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
       - name: Build static arm64 geolocd
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/geolocd ./cmd/geolocd
@@ -87,23 +106,7 @@ jobs:
           for m in debian-binary control.tar.gz data.tar.gz; do
             echo "$members" | grep -q "$m" || { echo "::error::ipk missing $m"; exit 1; }
           done
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: geolocd-ipk
           path: dist/*.ipk
-
-  markdownlint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - run: npx --yes markdownlint-cli@0.42.0 --config .markdownlint.json '**/*.md'
-
-  gitleaks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - name: gitleaks
-        run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
-            | tar -xz gitleaks
-          ./gitleaks detect --source . --no-git --redact -v

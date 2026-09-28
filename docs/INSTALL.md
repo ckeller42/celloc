@@ -121,7 +121,7 @@ This reuses the OpenCelliD `key` and `ula_endpoint` (e.g. `eu1`).
 ### WiFi options
 
 | Option | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `wifi_enable` | `1` | Enable WiFi geolocation (`0` to disable) |
 | `wifi_provider` | `google` | Provider: `google` or `unwiredlabs` |
 | `google_key` | _(none)_ | Google Geolocation API key (required for Google) |
@@ -152,7 +152,7 @@ If WiFi is not resolving, `logread -e geolocd` will show the reason.
 All configuration comes from uci; `geolocd` has a single flag:
 
 | Flag | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `-stream` | `1s` | How often the gpsd server streams a TPV to watching clients |
 
 The procd service starts `geolocd` without flags, so the default applies. The
@@ -196,7 +196,7 @@ Every setting except the token can also be given as a flag; a flag overrides its
 environment variable, which overrides the built-in default:
 
 | Flag | Env var | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-gpsd` | `GPSD_ADDR` | `192.168.8.1:2947` | Router gpsd address |
 | `-influx-url` | `INFLUX_URL` | `http://localhost:8086` | InfluxDB base URL |
 | `-org` | `INFLUX_ORG` | `home` | InfluxDB org |
@@ -256,7 +256,7 @@ geo_status mode=<n>i,fix_age_s=<f>,connected=<bool> <now-ns>
 ```
 
 | Field | Meaning |
-|---|---|
+| --- | --- |
 | `mode` | gpsd TPV mode from the router (`2` = fix, below `2` = no fix); `0` while disconnected |
 | `fix_age_s` | Seconds since the fix's own time (ms resolution), `-1` when the TPV has no time |
 | `connected` | `false` while the router's gpsd socket is unreachable |

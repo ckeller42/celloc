@@ -26,7 +26,7 @@ scripts/gcloud-geolocation-key.sh -p <PROJECT> -r root@<router> -j <user>@<jump-
 ```
 
 | Flag | Meaning |
-|---|---|
+| --- | --- |
 | `-p` | project id (required); `-c` creates it |
 | `-b` | billing account to link when billing is off |
 | `-n` | key display name (default `celloc geolocd`); an existing key with that name is reused |
@@ -51,7 +51,7 @@ Geolocation is an Essentials SKU: **10,000 free requests/month**, then $5 per
 1,000. geolocd sends **one request per poll**:
 
 | `wifi_interval` | per day | 31-day month |
-|---|---|---|
+| --- | --- | --- |
 | 300 s | 288 | 8,928 |
 | 240 s | 360 | 11,160 (over) |
 
@@ -62,7 +62,7 @@ at once, and procd respawns without limit.
 ## Gotchas
 
 | Symptom | Cause / fix |
-|---|---|
+| --- | --- |
 | `gcloud beta quotas preferences create` → "decreases effective quota unsafely" | Lowering an unlimited quota is a >10% decrease; gcloud has no flag for it. The script uses REST with `ignoreSafetyChecks=QUOTA_DECREASE_PERCENTAGE_TOO_HIGH` (a **query** parameter, not a body field). |
 | REST call → `SERVICE_DISABLED` for Cloud Quotas | `cloudquotas.googleapis.com` must be enabled on the project; the script enables it. A just-enabled API can take a minute; re-run. |
 | `api-keys create --format=json` shows the key | The create response contains the key string. The script selects only `response.name`. |
