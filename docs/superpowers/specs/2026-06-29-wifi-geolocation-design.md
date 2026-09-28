@@ -45,7 +45,7 @@ a scan never touches the uplink. Forced fresh active scans while pinging a wired
 Linux client (the Pi, on 5 GHz):
 
 | scan | client packet loss | latency avg→max | APs found |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | baseline (no scan) | 10% (jittery link) | 6 ms / 8 ms | — |
 | `wlan0` (2.4 GHz, other radio) | **0%** | 11 ms / 43 ms | 59 |
 | `wlan1` (5 GHz, client's radio) | **0%** | 19 ms / 48 ms | 56 |
@@ -72,7 +72,7 @@ WiFi wins when it has a fix; cell covers when WiFi can't (too few APs, API failu
 Three new packages mirror the existing cell stack's pure/IO split:
 
 | Package | Kind | Responsibility |
-|---|---|---|
+| --- | --- | --- |
 | `internal/wifiscan` | pure parse + IO scanner | parse `iw dev <if> scan` → `[]AP{BSSID, SignalDBm, SSID}`; IO runs the scan behind an injected `Exec` (as in `atrun`) |
 | `internal/unwiredlabs` | pure `ParseResponse` + request builder + IO `Client` (injected `Doer`) | `process.php` JSON → `Location{Lat,Lon,Accuracy}` + `Status{OK,Auth,RateLimited,Server,NotFound}` |
 | `internal/source/wifi` | IO compose | scanner + resolver + last-good cache/staleness + classified, throttled logging (reuses the cell source's pattern) |
@@ -122,7 +122,7 @@ iw scan ─▶ wifiscan ─▶ [APs] ─▶ unwiredlabs process.php ─▶ Locat
 New options (token reuses the existing `key`):
 
 | Option | Default | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | `wifi_enable` | `1` | enable the WiFi source |
 | `wifi_iface` | `wlan0` | scan interface(s), space-separated for multiple radios |
 | `wifi_interval` | `300` | WiFi scan/resolve cadence (seconds) |

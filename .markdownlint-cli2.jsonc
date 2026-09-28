@@ -1,0 +1,12 @@
+// The ONE markdownlint config for this repo (markdownlint-cli2, run by the
+// pre-commit hook and therefore by CI's pre-commit job).
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD032": false,
+    "MD033": false,
+    "MD041": false,
+    "MD010": { "code_blocks": false }
+  }
+}
