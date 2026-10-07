@@ -29,6 +29,8 @@ sparse, the serving cell still anchors the fix on its own.
 | `geolocd` | the router | AT + WiFi → position cache → gpsd server (`:2947`) |
 | `geoinflux` | the Pi / a host | gpsd client → InfluxDB uploader |
 
+> **Names:** `celloc` is the project (repo + opkg feed); the installed package and router daemon are `geolocd`. So it's `opkg install geolocd`, not `celloc`.
+
 ```text
 WiFi scan + modem (AT+QENG) ─▶ geolocd ─▶ provider (Google) ─▶ position ─▶ gpsd :2947
                                                                               │
