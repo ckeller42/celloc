@@ -373,7 +373,7 @@ comments.
 - **Accuracy.** A cell-only fix is typically hundreds of metres to a few km; WiFi improves this only
   with a provider key and mapped APs nearby. The error radius is reported honestly in `eph`.
 - **Provider cost and plans.** Google's free tier covers 10,000 requests per month; one request per
-  poll at the default 300 s interval is 288 per day. Unwired Labs WiFi geolocation needs a paid plan.
+  poll at the default 300 s interval is 288 per day. Unwired Labs WiFi geolocation must be enabled for the account, and eligibility and plan terms may vary.
 - **Unauthenticated gpsd.** `:2947` has no authentication, like upstream gpsd. It must stay LAN-only.
 - **NR5G-NSA and NR5G-SA.** An NSA line carries no cell IDs, so the LTE anchor is used. The NR5G-SA
   decoder is marked best-effort in the code.

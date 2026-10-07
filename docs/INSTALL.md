@@ -118,7 +118,7 @@ uci commit geolocd && /etc/init.d/geolocd restart
 
 This reuses the OpenCelliD `key` and `ula_endpoint` (e.g. `eu1`).
 
-> **Note:** Unwired Labs WiFi geolocation requires a **paid LocationAPI plan**.
+> **Note:** Unwired Labs WiFi geolocation must be **enabled for your LocationAPI account**; eligibility and plan terms may vary.
 > The free OpenCelliD tier returns "WiFi access not enabled". Cell still works
 > on the free tier regardless.
 

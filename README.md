@@ -13,7 +13,7 @@ No GPS antenna? `celloc` reads your modem's serving cell (`AT+QENG`) **and** nea
 access points, resolves them to coordinates, and serves the position on a real **gpsd** socket
 (TCP `2947`) so any gpsd client can consume it. A companion uploader pushes fixes to InfluxDB.
 
-With a **Google Geolocation API key** (or Unwired Labs paid plan), `geolocd` sends the WiFi
+With a **Google Geolocation API key** (or an Unwired Labs account with WiFi geolocation enabled), `geolocd` sends the WiFi
 APs **and** the serving cell in one request; the provider fuses them to **tens of metres where
 APs are well-mapped** — far better than the single-cell ~1.5 km estimate. When WiFi is too
 sparse, the serving cell still anchors the fix on its own.
