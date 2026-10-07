@@ -22,7 +22,7 @@ gpsd protocol. Two Go binaries, standard library only (no third-party modules):
 | `packaging/openwrt/` | `build-ipk.sh` + procd init script and uci config for the `.ipk` |
 | `pi/` | `geoinflux.service` + env example |
 | `scripts/gcloud-geolocation-key.sh` | Google Geolocation API key setup |
-| `docs/` | `ARCHITECTURE.md`, `INSTALL.md`; `docs/superpowers/` holds the design spec + plan |
+| `docs/` | `ARCHITECTURE.md`, `INSTALL.md`; `docs/superpowers/` = design spec + plan, local-only (gitignored) |
 
 ## Build, test, lint
 
