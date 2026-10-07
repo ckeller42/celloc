@@ -3,6 +3,7 @@
 [![CI](https://github.com/ckeller42/celloc/actions/workflows/ci.yml/badge.svg)](https://github.com/ckeller42/celloc/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ckeller42/celloc)](https://github.com/ckeller42/celloc/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ckeller42/celloc)](https://goreportcard.com/report/github.com/ckeller42/celloc)
+[![Go version](https://img.shields.io/github/go-mod/go-version/ckeller42/celloc)](go.mod)
 [![License: MIT](https://img.shields.io/github/license/ckeller42/celloc)](LICENSE)
 
 **WiFi + cell-tower geolocation for OpenWrt / GL-iNet routers, exposed over the gpsd protocol.**
@@ -28,6 +29,8 @@ sparse, the serving cell still anchors the fix on its own.
 | --- | --- | --- |
 | `geolocd` | the router | AT + WiFi → position cache → gpsd server (`:2947`) |
 | `geoinflux` | the Pi / a host | gpsd client → InfluxDB uploader |
+
+> **Names:** `celloc` is the project (repo + opkg feed); the installed package and router daemon are `geolocd`. So it's `opkg install geolocd`, not `celloc`.
 
 ```text
 WiFi scan + modem (AT+QENG) ─▶ geolocd ─▶ provider (Google) ─▶ position ─▶ gpsd :2947
@@ -74,7 +77,7 @@ scripts/gcloud-geolocation-key.sh -p <PROJECT> -r root@<router>
 ```
 
 The API gives 10,000 free requests per month. geolocd sends one request per
-poll, so `wifi_interval=300` uses about 8,900 in a 31-day month. The default cap
+poll, so `wifi_interval=300` is 288/day — 8,928 in a 31-day month. The default cap
 of 320/day keeps usage inside the free tier, even if the daemon keeps
 restarting. Claude Code users get the same workflow as the
 [`google-geolocation-key`](.claude/skills/google-geolocation-key/SKILL.md) skill.
