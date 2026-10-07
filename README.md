@@ -76,7 +76,7 @@ scripts/gcloud-geolocation-key.sh -p <PROJECT> -r root@<router>
 ```
 
 The API gives 10,000 free requests per month. geolocd sends one request per
-poll, so `wifi_interval=300` uses about 8,900 in a 31-day month. The default cap
+poll, so `wifi_interval=300` is 288/day — 8,928 in a 31-day month. The default cap
 of 320/day keeps usage inside the free tier, even if the daemon keeps
 restarting. Claude Code users get the same workflow as the
 [`google-geolocation-key`](.claude/skills/google-geolocation-key/SKILL.md) skill.

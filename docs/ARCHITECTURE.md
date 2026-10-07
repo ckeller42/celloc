@@ -68,7 +68,8 @@ for it rather than invent a `source` tag.
    modem helper or provider can't stall the loop. A failed or timed-out poll
    falls back to the source's cached fix while it is younger than `StaleAfter`,
    and otherwise serves no-fix (`mode=0`).
-2. The fix is cached (served until `StaleAfter`) and stored atomically.
+2. The fix is cached (served until `StaleAfter`, which is `2 × wifi_interval`
+   floored at 2 min) and stored atomically.
 3. The gpsd `Server` streams `TPVFromFix` to watching clients every `-stream`
    interval (default 1 s) and answers `?POLL`/`?WATCH`/`?VERSION`.
 4. `geoinflux` (Pi) watches the socket, converts each TPV back to a `Fix`
