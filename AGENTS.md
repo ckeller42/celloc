@@ -22,7 +22,7 @@ gpsd protocol. Two Go binaries, standard library only (no third-party modules):
 | `packaging/openwrt/` | `build-ipk.sh` + procd init script and uci config for the `.ipk` |
 | `pi/` | `geoinflux.service` + env example |
 | `scripts/gcloud-geolocation-key.sh` | Google Geolocation API key setup |
-| `docs/` | `ARCHITECTURE.md`, `INSTALL.md`; `docs/superpowers/` = design spec + plan, local-only (gitignored) |
+| `docs/` | the Sphinx site: `index.rst`, `getting-started.md`, `INSTALL.md` (how-to), `reference/`, `ARCHITECTURE.md`, `conf.py`, `requirements.txt`; `docs/superpowers/` = design spec + plan, local-only (gitignored) |
 
 ## Build, test, lint
 
@@ -67,3 +67,22 @@ CodeRabbit (and Qodo, `.pr_agent.toml`) review thread resolved before merge.
 
 For the Google Geolocation API key (create, restrict, cap, rotate, write to the
 router) use the `google-geolocation-key` skill in `.claude/skills/`.
+
+## Docs contract
+
+- **Four groups, one home per fact.** `docs/index.rst` has the toctrees Getting started, How-to
+  guides, Reference, Explanation. A page belongs to exactly one; other pages link to it, never copy it.
+- **One architecture page.** `docs/ARCHITECTURE.md` is structured by the 12 arc42 sections and drawn
+  with C4-styled Mermaid (flowcharts and sequence diagrams; classDef colours person `#08427b`,
+  system `#1168bd`, container `#438dd5`, external `#999999`). Mermaid lint: no `;`, no bare `&`, `<`
+  or `>` in free text, no `<-->` (use `---`), no `:` in a loop or opt label. Diagram text must match
+  the code (`cmd/`, `internal/`).
+- **The build is gated.** `sphinx-build -b html -W docs docs/_build/html` (deps pinned in
+  `docs/requirements.txt`, Sphinx + Furo + myst-parser + sphinxcontrib-mermaid) runs as the `docs`
+  CI job. It is not a required check; never add it to the required list.
+- **Examples are synthetic.** Docs follow the no-deployment-specifics rule: placeholders and made-up
+  coordinates only.
+- **Publishing.** The site is not deployed yet. GitHub Pages is the opkg feed's host
+  (`pages-feed.yml`), whose artifact would be replaced by a second Pages deploy, so a docs deploy has
+  to be merged into that workflow's artifact. Do not change repo settings from a PR.
+- The cross-repo concept is `DOCUMENTATION.md` in `ckeller42/buspi-config`.

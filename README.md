@@ -1,6 +1,7 @@
 # celloc
 
 [![CI](https://github.com/ckeller42/celloc/actions/workflows/ci.yml/badge.svg)](https://github.com/ckeller42/celloc/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-Sphinx-blue)](docs/index.rst)
 [![Release](https://img.shields.io/github/v/release/ckeller42/celloc)](https://github.com/ckeller42/celloc/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ckeller42/celloc)](https://goreportcard.com/report/github.com/ckeller42/celloc)
 [![Go version](https://img.shields.io/github/go-mod/go-version/ckeller42/celloc)](go.mod)
@@ -42,9 +43,17 @@ WiFi scan + modem (AT+QENG) ─▶ geolocd ─▶ provider (Google) ─▶ posit
 ## Status
 
 Working end to end: `geolocd` (router daemon + gpsd server) and `geoinflux` (Pi uploader) are
-implemented and tested, and the OpenWrt `.ipk` builds in CI. Docs:
-[ARCHITECTURE](docs/ARCHITECTURE.md) · [INSTALL](docs/INSTALL.md) ·
-[CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md).
+implemented and tested, and the OpenWrt `.ipk` builds in CI.
+
+## Documentation
+
+The docs are a Sphinx site (Furo theme) sourced from [`docs/`](docs/index.rst):
+[Getting started](docs/getting-started.md) · [Install and operate](docs/INSTALL.md) ·
+[Reference](docs/reference/gpsd.md) ([config](docs/reference/config.md),
+[InfluxDB schema](docs/reference/influxdb.md)) · [Architecture](docs/ARCHITECTURE.md).
+Build locally with `pip install -r docs/requirements.txt` and
+`sphinx-build -b html -W docs docs/_build/html`. See also
+[CONTRIBUTING](CONTRIBUTING.md) and [SECURITY](SECURITY.md).
 
 ## Quick start
 
