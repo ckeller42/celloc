@@ -3,6 +3,7 @@
 [![CI](https://github.com/ckeller42/celloc/actions/workflows/ci.yml/badge.svg)](https://github.com/ckeller42/celloc/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ckeller42/celloc)](https://github.com/ckeller42/celloc/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ckeller42/celloc)](https://goreportcard.com/report/github.com/ckeller42/celloc)
+[![Go version](https://img.shields.io/github/go-mod/go-version/ckeller42/celloc)](go.mod)
 [![License: MIT](https://img.shields.io/github/license/ckeller42/celloc)](LICENSE)
 
 **WiFi + cell-tower geolocation for OpenWrt / GL-iNet routers, exposed over the gpsd protocol.**
