@@ -1,6 +1,10 @@
-# Installing celloc
+# Install and operate celloc
 
-## Router daemon (`geolocd`) on OpenWrt / GL-iNet
+Goal-oriented recipes for running celloc: install `geolocd` on the router, set the provider key,
+run `geoinflux` on the Pi, and recover after a firmware flash. For a guided first run see
+[Getting started](getting-started.md); for option tables see [Configuration](reference/config.md).
+
+## Install `geolocd` on the router (OpenWrt / GL-iNet)
 
 ### 1. Install the package
 
@@ -58,7 +62,7 @@ conffile).
 
 `geolocd` resolves position through a geolocation **provider** — **Google by
 default** — sending the WiFi scan and the modem's serving cell together. Create a
-**Google Geolocation API key** (full steps in [WiFi geolocation](#wifi-geolocation)
+**Google Geolocation API key** (full steps in [WiFi geolocation](#configure-wifi-geolocation)
 below), then:
 
 ```sh
@@ -80,7 +84,7 @@ gpspipe -w <router-ip>:2947     # expect a TPV with mode:2, lat/lon, a wifix obj
 logread -e geolocd
 ```
 
-## WiFi geolocation
+## Configure WiFi geolocation
 
 WiFi geolocation is **on by default** (`wifi_enable '1'`). Each cycle `geolocd`
 scans nearby APs and reads the serving cell, then sends **both** to the provider in
@@ -114,21 +118,14 @@ uci commit geolocd && /etc/init.d/geolocd restart
 
 This reuses the OpenCelliD `key` and `ula_endpoint` (e.g. `eu1`).
 
-> **Note:** Unwired Labs WiFi geolocation requires a **paid LocationAPI plan**.
+> **Note:** Unwired Labs WiFi geolocation must be **enabled for your LocationAPI account**; eligibility and plan terms may vary.
 > The free OpenCelliD tier returns "WiFi access not enabled". Cell still works
 > on the free tier regardless.
 
 ### WiFi options
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `wifi_enable` | `1` | Enable WiFi geolocation (`0` to disable) |
-| `wifi_provider` | `google` | Provider: `google` or `unwiredlabs` |
-| `google_key` | _(none)_ | Google Geolocation API key (required for Google) |
-| `wifi_iface` | `wlan0` | Space-separated list of WiFi interfaces to scan |
-| `wifi_interval` | `300` | Seconds between WiFi scans |
-| `wifi_min_aps` | `2` | Minimum visible APs required before querying provider |
-| `ula_endpoint` | `eu1` | Unwired Labs region (only used with `unwiredlabs`) |
+All options (`wifi_enable`, `wifi_provider`, `google_key`, `wifi_iface`, `wifi_interval`,
+`wifi_min_aps`, `ula_endpoint`, ...) are listed in [Configuration](reference/config.md#geolocd-uci-options).
 
 ### Disable WiFi geolocation
 
@@ -137,7 +134,7 @@ uci set geolocd.main.wifi_enable='0'
 uci commit geolocd && /etc/init.d/geolocd restart
 ```
 
-### Verify
+### Check that WiFi resolves
 
 ```sh
 gpspipe -w <router-ip>:2947
@@ -149,17 +146,9 @@ If WiFi is not resolving, `logread -e geolocd` will show the reason.
 
 ### Command-line flags
 
-All configuration comes from uci; `geolocd` has a single flag:
+`geolocd` has a single flag, `-stream`; see [Configuration](reference/config.md#geolocd-flags).
 
-| Flag | Default | Description |
-| --- | --- | --- |
-| `-stream` | `1s` | How often the gpsd server streams a TPV to watching clients |
-
-The procd service starts `geolocd` without flags, so the default applies. The
-stream cadence is independent of `wifi_interval`: clients receive the cached
-fix every `-stream`, while the provider is queried once per `wifi_interval`.
-
-## Pi uploader (`geoinflux`)
+## Run the uploader (`geoinflux`) on the Pi
 
 `geoinflux` is a gpsd client that reads fixes from `geolocd` on the router and
 writes them to InfluxDB. Run it on the Pi (or any host that can reach both the
@@ -190,22 +179,10 @@ sudo "${EDITOR:-vi}" /etc/buspi/geo.env   # set GPSD_ADDR, INFLUX_URL, token, or
 
 `GPSD_ADDR` is the router's gpsd socket, e.g. `192.168.8.1:2947` (or its
 Tailscale IP). The token is read from the environment only — never passed on the
-command line. See [SECURITY.md](../SECURITY.md).
+command line. See [SECURITY](https://github.com/ckeller42/celloc/blob/main/SECURITY.md).
 
-Every setting except the token can also be given as a flag; a flag overrides its
-environment variable, which overrides the built-in default:
-
-| Flag | Env var | Default | Description |
-| --- | --- | --- | --- |
-| `-gpsd` | `GPSD_ADDR` | `192.168.8.1:2947` | Router gpsd address |
-| `-influx-url` | `INFLUX_URL` | `http://localhost:8086` | InfluxDB base URL |
-| `-org` | `INFLUX_ORG` | `home` | InfluxDB org |
-| `-bucket` | `INFLUX_BUCKET` | `buspi` | InfluxDB bucket |
-| `-min-interval` | `UPLOAD_MIN_INTERVAL` | `30s` | Minimum time between `geo` writes (and between `geo_status` heartbeats) |
-| — | `INFLUXDB_TOKEN` | _(required)_ | InfluxDB write token; env only, `geoinflux` exits if unset |
-
-`UPLOAD_MIN_INTERVAL` takes a Go duration (`30s`, `2m`); an unparsable value
-silently falls back to the default.
+Every setting except the token can also be given as a flag; flags and environment variables are
+listed in [Configuration](reference/config.md#geoinflux-flags-and-environment).
 
 ### 3. Install and start the service
 
@@ -216,55 +193,14 @@ sudo systemctl enable --now geoinflux
 journalctl -u geoinflux -f      # watch it connect and write points
 ```
 
-### What gets written
+### Check what gets written
 
-`geoinflux` writes two measurements to the configured bucket, posting with
-`precision=ns`.
+`geoinflux` writes the `geo` (one point per fix) and `geo_status` (heartbeat) measurements. Their
+tags, fields and meaning are in the [InfluxDB schema](reference/influxdb.md). A quick check:
 
-**`geo`** — one point per fix (TPV `mode>=2`), at most once per `-min-interval`.
-The point is stamped with the fix's own time from the TPV, so a fix uploaded
-late is stored at the time it was taken (a TPV without a time gets InfluxDB's
-server time). The tags and fields depend on what resolved the fix:
-
-```text
-geo,source=wifi lat=<f>,lon=<f>,range_m=<n>i,ap_count=<n>i <ns>
-geo,source=cell,radio=<LTE|NR5G-SA> lat=<f>,lon=<f>,range_m=<n>i,mcc=<n>i,mnc=<n>i,cid=<n>i,tac=<n>i <ns>
+```sh
+journalctl -u geoinflux -n 20     # expect "fix acquired" and "wrote <lat>,<lon> eph=..."
 ```
-
-- `source=wifi` — the provider resolved the WiFi scan (plus the serving cell).
-  Carries `ap_count` (APs sent) and has **no** `radio` tag or cell fields.
-- `source=cell` — only the serving cell anchored the fix. This line keeps the
-  legacy `geo` schema (tags, fields and field order), so existing cell-based
-  Grafana panels keep working; panels that filter on `source="cell"` will not
-  show WiFi fixes.
-
-`range_m` is the reported error radius (gpsd `eph`) in metres, rounded down.
-
-A `mode>=2` TPV that carries **neither** a `wifix` nor a `cellfix` object is
-not a celloc fix (`geolocd` attaches one of them to every fix it serves; a
-plain TPV means `-gpsd` points at some other gpsd). No `geo` point is written
-for it, since there is no honest `source` to tag it with. The `geo_status`
-heartbeat still records its `mode`, and `geoinflux` logs
-`skipping geo point: ...` (at most once a minute). A tag whose value is empty
-(for example a cell fix without a radio) is left out of the point; it is never
-written as `radio=`.
-
-**`geo_status`** — an uploader heartbeat, written whether or not there is a fix:
-
-```text
-geo_status mode=<n>i,fix_age_s=<f>,connected=<bool> <now-ns>
-```
-
-| Field | Meaning |
-| --- | --- |
-| `mode` | gpsd TPV mode from the router (`2` = fix, below `2` = no fix); `0` while disconnected |
-| `fix_age_s` | Seconds since the fix's own time (ms resolution), `-1` when the TPV has no time |
-| `connected` | `false` while the router's gpsd socket is unreachable |
-
-It is written at most once per `-min-interval` while TPVs arrive, and
-immediately whenever connectivity changes (connect or disconnect). This tells a
-dead uploader (no points at all) apart from an unreachable router
-(`connected=false`), no fix (`mode<2`) and a stale fix (growing `fix_age_s`).
 
 ## Build from source
 
@@ -276,7 +212,7 @@ make test lint      # go test -race + golangci-lint
 `geolocd` is a static `CGO_ENABLED=0` binary, so it has no libc/runtime dependency
 on the router.
 
-## ⚠️ After a firmware upgrade
+## Recover after a firmware upgrade
 
 A GL/OpenWrt **firmware flash replaces the rootfs**, so `/usr/bin/geolocd` and the
 installed package are **wiped**. A _keep-settings_ sysupgrade preserves everything
@@ -347,5 +283,5 @@ opkg install /etc/geolocd.ipk
 
 - `:2947` is bound on all interfaces but inbound WAN is dropped by the default
   OpenWrt firewall — it is reachable from the LAN (where the Pi lives), not the
-  internet. Don't open a WAN port for it. See [SECURITY.md](../SECURITY.md).
+  internet. Don't open a WAN port for it. See [SECURITY](https://github.com/ckeller42/celloc/blob/main/SECURITY.md).
 - The provider keys (`google_key` / `key`) are secrets: keep router config backups out of version control.
