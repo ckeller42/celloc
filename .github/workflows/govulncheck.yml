@@ -1,0 +1,32 @@
+name: govulncheck
+
+# Informational: not a required check. Scans reachable vulnerabilities in the
+# module's dependencies and the Go standard library.
+on:
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"  # weekly, Monday 05:17 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: govulncheck-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Latest stable Go, so stdlib advisories are judged against a current
+      # toolchain (go.mod's version is the compatibility floor, not the scan target).
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+      - run: govulncheck ./...

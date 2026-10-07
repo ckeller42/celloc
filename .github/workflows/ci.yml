@@ -10,24 +10,30 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+      - name: Verify modules
+        run: go mod verify
       - name: Vet
         run: go vet ./...
+      # One race run feeds the gate: -coverpkg attributes every package's tests
+      # to ./internal/..., the same statement set the gate has always measured.
       - name: Test (race + coverage)
-        run: go test ./... -race -covermode=atomic -coverprofile=cover.out
+        run: go test ./... -race -shuffle=on -covermode=atomic -coverpkg=./internal/... -coverprofile=cover.out
       - name: Coverage gate (internal >= 85%)
         run: |
-          go test ./internal/... -covermode=atomic -coverprofile=internal.out >/dev/null
-          pct=$(go tool cover -func=internal.out | awk '/^total:/ {sub(/%/,"",$3); print $3}')
+          pct=$(go tool cover -func=cover.out | awk '/^total:/ {sub(/%/,"",$3); print $3}')
           echo "internal coverage: ${pct}%"
           awk -v p="$pct" 'BEGIN { exit (p+0 >= 85) ? 0 : 1 }' || {
             echo "::error::internal coverage ${pct}% < 85%"; exit 1; }
@@ -38,8 +44,11 @@ jobs:
   # are built from source at their pinned tags, and go-build-entrypoints runs go.
   pre-commit:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -64,6 +73,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         include:
@@ -77,6 +87,8 @@ jobs:
       GOARM: ${{ matrix.goarm }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -87,14 +99,17 @@ jobs:
 
   ipk:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Build static arm64 geolocd
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/geolocd ./cmd/geolocd
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -buildvcs=false -ldflags "-s -w" -o dist/geolocd ./cmd/geolocd
           file dist/geolocd | grep -q "statically linked"
       - name: Build .ipk (OpenWrt gzip-tar format)
         run: |

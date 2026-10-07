@@ -17,7 +17,7 @@ name: Pages feed (opkg)
 # One-time manual prerequisite (a workflow cannot enable Pages on itself):
 #   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 
-on:
+on:  # zizmor: ignore[dangerous-triggers] -- workflow_run payload unused; checks out main only, publishes from published releases
   workflow_run:
     workflows: [Release]
     types: [completed]
@@ -42,11 +42,14 @@ env:
 
 jobs:
   build:
+    timeout-minutes: 10
     # Only after a successful Release run (or a manual dispatch).
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Fetch opkg-utils (pinned)
         run: |
@@ -106,6 +109,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write
