@@ -5,16 +5,39 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  # A tag must not be able to release code that fails its tests.
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false  # release artifacts must not be built from a restorable cache
+      - run: go test ./...
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write      # publish the GitHub release
+      id-token: write      # sign the build provenance attestation
+      attestations: write  # store the attestation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false  # release artifacts must not be built from a restorable cache
 
       - name: Build binaries + ipk
         run: |
@@ -27,20 +50,25 @@ jobs:
             case "$rest" in */*) arm="${rest#*/}";; *) arm="";; esac
             out="dist/geoinflux_${ver}_${os}_${arch}${arm:+v$arm}"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" GOARM="$arm" \
-              go build -ldflags "-s -w -X main.Version=${ver}" -o "$out" ./cmd/geoinflux
+              go build -trimpath -buildvcs=false -ldflags "-s -w -X main.Version=${ver}" -o "$out" ./cmd/geoinflux
           done
           # geolocd static arm64 for the router, packaged as .ipk
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-            go build -ldflags "-s -w -X main.Version=${ver}" -o dist/geolocd ./cmd/geolocd
+            go build -trimpath -buildvcs=false -ldflags "-s -w -X main.Version=${ver}" -o dist/geolocd ./cmd/geolocd
           sh packaging/openwrt/build-ipk.sh dist/geolocd "${ver}" aarch64_cortex-a53 dist
           # Versionless copy so releases/latest/download/<fixed name> resolves.
           cp "dist/geolocd_${ver}_aarch64_cortex-a53.ipk" dist/geolocd_aarch64_cortex-a53.ipk
           rm -f dist/geolocd
-          ( cd dist && sha256sum * > SHA256SUMS )
+          ( cd dist && sha256sum -- * > SHA256SUMS )
           ls -l dist
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
       - name: Publish release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3  # zizmor: ignore[superfluous-actions] -- pinned, already in use; switching to gh release is out of scope
         with:
           generate_release_notes: true
           files: |

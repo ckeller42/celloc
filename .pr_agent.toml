@@ -13,12 +13,14 @@ persistent_comment = true
 final_update_message = false
 extra_instructions = """
 Project rules to enforce:
-- Pure-vs-I/O split: parsing/marshaling packages (qeng, opencellid/parse, gpsd/report,
-  influx/line, uciconf/config, source) must not do network/filesystem/env/wall-clock
+- Pure-vs-I/O split: parsing/marshaling packages (qeng, wifiscan, gpsd, influx,
+  uciconf, source) must not do network/filesystem/env/wall-clock
   access — those are injected via interfaces.
-- No fabricated positioning data: a cell fix is gpsd TPV mode=2 with eph==epx==epy from
-  the OpenCelliD range and no alt/speed/track; no-fix is mode=0 with no coordinates.
-- Secrets (OpenCelliD / InfluxDB tokens) must never appear in argv, logs, or committed files.
+- No fabricated positioning data: a WiFi or cell fix is gpsd TPV mode=2 with eph==epx==epy
+  from the provider's (Google / Unwired Labs) accuracy and no alt/speed/track; no fix or a
+  stale fix is mode=0 with no coordinates.
+- Secrets (Google / Unwired Labs keys, InfluxDB token) must never appear in argv, logs, or
+  committed files. No deployment specifics (real IMEIs, MACs, SSIDs, coordinates, hostnames).
 - Tests: prefer table-driven, cover garbage/error/edge paths; do not weaken assertions for coverage.
 """
 
