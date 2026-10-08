@@ -82,7 +82,8 @@ router) use the `google-geolocation-key` skill in `.claude/skills/`.
   CI job. It is not a required check; never add it to the required list.
 - **Examples are synthetic.** Docs follow the no-deployment-specifics rule: placeholders and made-up
   coordinates only.
-- **Publishing.** The site is not deployed yet. GitHub Pages is the opkg feed's host
-  (`pages-feed.yml`), whose artifact would be replaced by a second Pages deploy, so a docs deploy has
-  to be merged into that workflow's artifact. Do not change repo settings from a PR.
+- **Publishing.** GitHub Pages is the opkg feed's host, and a second Pages deploy would replace its
+  artifact, so `pages-feed.yml` is the only Pages deploy: it builds the site into `public/docs/` next
+  to the feed (`public/<arch>/`, path unchanged) and runs after each release. Do not change repo
+  settings from a PR.
 - The cross-repo concept is `DOCUMENTATION.md` in `ckeller42/buspi-config`.

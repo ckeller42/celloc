@@ -25,15 +25,13 @@ For a first run see [Getting started](getting-started.md).
 
 ## 2. Constraints
 
-| Constraint | Source |
-| --- | --- |
-| Go, standard library only (no third-party modules) | `go.mod` has no `require` lines |
-| `geolocd` is a static `CGO_ENABLED=0` binary for OpenWrt (arm64), so it needs no libc on the router | `packaging/openwrt/build-ipk.sh`, `Makefile` |
-| The router is reached through its own tools: `iw` for the WiFi scan, `gl_modem` or `ubus` for AT commands, `uci` for configuration | `internal/wifiscan`, `internal/atrun`, `internal/uciconf` |
-| The modem speaks Quectel `AT+QENG="servingcell"` | `internal/qeng` |
-| The output speaks the JSON subset of gpsd protocol 3.14 | `internal/gpsd` |
-| Provider keys and the InfluxDB token never appear in argv or logs | [SECURITY](https://github.com/ckeller42/celloc/blob/main/SECURITY.md) |
-| No deployment specifics (real keys, hosts, coordinates) in the repository | [AGENTS](https://github.com/ckeller42/celloc/blob/main/AGENTS.md) |
+- Go, standard library only (no third-party modules). Source: `go.mod` has no `require` lines
+- `geolocd` is a static `CGO_ENABLED=0` binary for OpenWrt (arm64), so it needs no libc on the router. Source: `packaging/openwrt/build-ipk.sh`, `Makefile`
+- The router is reached through its own tools: `iw` for the WiFi scan, `gl_modem` or `ubus` for AT commands, `uci` for configuration. Source: `internal/wifiscan`, `internal/atrun`, `internal/uciconf`
+- The modem speaks Quectel `AT+QENG="servingcell"`. Source: `internal/qeng`
+- The output speaks the JSON subset of gpsd protocol 3.14. Source: `internal/gpsd`
+- Provider keys and the InfluxDB token never appear in argv or logs. Source: [SECURITY](https://github.com/ckeller42/celloc/blob/main/SECURITY.md)
+- No deployment specifics (real keys, hosts, coordinates) in the repository. Source: [AGENTS](https://github.com/ckeller42/celloc/blob/main/AGENTS.md)
 
 ## 3. Context and scope
 
@@ -66,23 +64,19 @@ Scope boundary: celloc owns everything from the AT and WiFi reads to the InfluxD
 not own the modem, the provider's database, InfluxDB or Grafana. It sends **BSSIDs of nearby
 networks and the serving cell** to the configured provider, and nothing else.
 
-| Neighbour | Interface |
-| --- | --- |
-| Router hardware | `iw dev <if> scan` and `AT+QENG="servingcell"` through `gl_modem` or `ubus` |
-| Provider | Google `POST /geolocation/v1/geolocate`, or Unwired Labs `POST /v2/process.php` |
-| gpsd clients | [gpsd output](reference/gpsd.md) on TCP `2947` |
-| InfluxDB | `POST /api/v2/write` with `precision=ns`, see [InfluxDB schema](reference/influxdb.md) |
+- **Router hardware**: `iw dev <if> scan` and `AT+QENG="servingcell"` through `gl_modem` or `ubus`
+- **Provider**: Google `POST /geolocation/v1/geolocate`, or Unwired Labs `POST /v2/process.php`
+- **gpsd clients**: [gpsd output](reference/gpsd.md) on TCP `2947`
+- **InfluxDB**: `POST /api/v2/write` with `precision=ns`, see [InfluxDB schema](reference/influxdb.md)
 
 ## 4. Solution strategy
 
-| Goal | Approach |
-| --- | --- |
-| Consumable by existing software | Speak gpsd, not a private protocol. One unauthenticated TCP socket, `?WATCH`, `?POLL`, `?VERSION`, `?DEVICES` |
-| Accurate without GNSS | One WiFi source that sends scanned APs **and** the serving cell in a single provider request, so the provider fuses them. The cell anchors the fix when APs are sparse |
-| Never lie about the fix | TPV `mode=2` with `eph==epx==epy` from the provider's accuracy and no `alt`/`speed`/`track`. No fix or a stale fix is `mode=0` with no coordinates |
-| Easy to test | Pure parsing and marshaling packages. Subprocesses and HTTP are injected (`Exec`, `Doer`, clock) |
-| Survive failures | Per-call timeouts, cached fix until stale, reconnect loop, rate-limited logs |
-| Keep secrets off the command line | Router config from uci, Pi config from an environment file |
+- **Consumable by existing software**: Speak gpsd, not a private protocol. One unauthenticated TCP socket, `?WATCH`, `?POLL`, `?VERSION`, `?DEVICES`
+- **Accurate without GNSS**: One WiFi source that sends scanned APs **and** the serving cell in a single provider request, so the provider fuses them. The cell anchors the fix when APs are sparse
+- **Never lie about the fix**: TPV `mode=2` with `eph==epx==epy` from the provider's accuracy and no `alt`/`speed`/`track`. No fix or a stale fix is `mode=0` with no coordinates
+- **Easy to test**: Pure parsing and marshaling packages. Subprocesses and HTTP are injected (`Exec`, `Doer`, clock)
+- **Survive failures**: Per-call timeouts, cached fix until stale, reconnect loop, rate-limited logs
+- **Keep secrets off the command line**: Router config from uci, Pi config from an environment file
 
 ## 5. Building blocks
 
@@ -154,26 +148,24 @@ flowchart TB
 
 ### Package map and the pure vs I/O split
 
-Mirroring the seed project, parsing/marshaling is pure (no network, filesystem, env, or
+Parsing/marshaling is pure (no network, filesystem, env, or
 wall-clock) so it is exhaustively table-testable; I/O sits behind small injected interfaces.
 
-| Package | Kind | Responsibility |
-| --- | --- | --- |
-| `internal/qeng` | pure | parse `AT+QENG="servingcell"` → cells (skipping a leading `"servingcell",<state>` prefix); pick the geolocatable cell — LTE (also the NSA anchor), else NR5G-SA |
-| `internal/gpsd` | pure reports + I/O `Server`/`Client` | gpsd TPV/SKY/VERSION/POLL |
-| `internal/source` | pure | `Source` interface, `Fix` value type, `ErrNoFix` |
-| `internal/source/cell` | I/O | `ServingCellReader` (AT+qeng → serving cell for blending) |
-| `internal/geoloc` | pure | neutral `Location{Lat,Lon,Accuracy}` shared by resolvers |
-| `internal/wifiscan` | pure parse + I/O scanner | `iw dev <if> scan` → `[]AP` |
-| `internal/unwiredlabs` | pure `ParseResponse` + I/O `Client` | LocationAPI `process.php` |
-| `internal/google` | pure `ParseResponse` + I/O `Client` | Google `geolocate` |
-| `internal/source/wifi` | I/O (compose) | scan + resolve + cache, behind a neutral `Resolver` |
-| `internal/atrun` | I/O (`Exec`) | run AT via `gl_modem` / `ubus` |
-| `internal/influx` | pure `FixLine`/`StatusLine` + I/O `Writer` (`Doer`) | `geo` + `geo_status` line protocol + write (`precision=ns`) |
-| `internal/uciconf` | pure parse + I/O load | read `/etc/config/geolocd` via uci |
-| `internal/ratelog` | helper (injectable clock) | throttle repeated log lines (per key, once a minute by default) so a persistent failure doesn't flood the router's log buffer |
-| `cmd/geolocd` | wiring | uci → source → poll loop → gpsd server |
-| `cmd/geoinflux` | wiring | gpsd client → InfluxDB (reconnect, debounce) |
+- `internal/qeng` (pure): parse `AT+QENG="servingcell"` → cells (skipping a leading `"servingcell",<state>` prefix); pick the geolocatable cell — LTE (also the NSA anchor), else NR5G-SA
+- `internal/gpsd` (pure reports + I/O `Server`/`Client`): gpsd TPV/SKY/VERSION/POLL
+- `internal/source` (pure): `Source` interface, `Fix` value type, `ErrNoFix`
+- `internal/source/cell` (I/O): `ServingCellReader` (AT+qeng → serving cell for blending)
+- `internal/geoloc` (pure): neutral `Location{Lat,Lon,Accuracy}` shared by resolvers
+- `internal/wifiscan` (pure parse + I/O scanner): `iw dev <if> scan` → `[]AP`
+- `internal/unwiredlabs` (pure `ParseResponse` + I/O `Client`): LocationAPI `process.php`
+- `internal/google` (pure `ParseResponse` + I/O `Client`): Google `geolocate`
+- `internal/source/wifi` (I/O, composes the others): scan + resolve + cache, behind a neutral `Resolver`
+- `internal/atrun` (I/O via `Exec`): run AT via `gl_modem` / `ubus`
+- `internal/influx` (pure `FixLine`/`StatusLine` plus I/O `Writer` via `Doer`): `geo` + `geo_status` line protocol + write (`precision=ns`)
+- `internal/uciconf` (pure parse + I/O load): read `/etc/config/geolocd` via uci
+- `internal/ratelog` (helper with an injectable clock): throttle repeated log lines (per key, once a minute by default) so a persistent failure doesn't flood the router's log buffer
+- `cmd/geolocd` (wiring): uci → source → poll loop → gpsd server
+- `cmd/geoinflux` (wiring): gpsd client → InfluxDB (reconnect, debounce)
 
 ### Pluggable sources (GNSS-ready)
 
@@ -248,14 +240,12 @@ the TPV stream ticks every `-stream` interval, and the uploader debounces its wr
 
 ### Degraded paths
 
-| Situation | Behaviour |
-| --- | --- |
-| Scan fails or finds fewer than `wifi_min_aps` APs, serving cell available | AP set is dropped, the fix resolves from the cell alone and is tagged `source=cell` |
-| Serving cell unreadable, enough APs | Resolves from WiFi only (`source=wifi`) |
-| Neither APs nor cell | The poll fails and falls back to the cached fix while it is younger than `StaleAfter` |
-| Provider error or timeout | Logged (throttled), cached fix served until stale, then `mode=0` |
-| Router gpsd unreachable | `geoinflux` writes `geo_status connected=false` and reconnects every 10 s |
-| Stalled gpsd connection | `geoinflux` read deadline of 90 s forces a reconnect |
+- **Scan fails or finds fewer than `wifi_min_aps` APs, serving cell available**: AP set is dropped, the fix resolves from the cell alone and is tagged `source=cell`
+- **Serving cell unreadable, enough APs**: Resolves from WiFi only (`source=wifi`)
+- **Neither APs nor cell**: The poll fails and falls back to the cached fix while it is younger than `StaleAfter`
+- **Provider error or timeout**: Logged (throttled), cached fix served until stale, then `mode=0`
+- **Router gpsd unreachable**: `geoinflux` writes `geo_status connected=false` and reconnects every 10 s
+- **Stalled gpsd connection**: `geoinflux` read deadline of 90 s forces a reconnect
 
 ## 7. Deployment view
 
@@ -305,7 +295,7 @@ flowchart LR
   `pi/geoinflux.service` with its settings in `/etc/buspi/geo.env` (mode `0600`). Releases carry
   builds for `linux_arm64`, `linux_armv7` and `linux_amd64`.
 - **Delivery.** Releases build and attach the artifacts; the Pages workflow indexes them as an opkg
-  feed. A firmware flash replaces the router rootfs, so the package must be reinstalled; see
+  feed and publishes this documentation site next to it. A firmware flash replaces the router rootfs, so the package must be reinstalled; see
   [Install and operate](INSTALL.md).
 
 ## 8. Crosscutting concepts
@@ -347,25 +337,21 @@ overriding environment variables overriding defaults. See [Configuration](refere
 Dated records are not kept separately; the decisions below are visible in the code and its
 comments.
 
-| Decision | Consequence |
-| --- | --- |
-| Serve gpsd rather than a custom API | Any gpsd client works. Position quality is conveyed through `mode` and `eph`, and celloc adds only the `wifix`/`cellfix` extension objects |
-| One WiFi source blending the cell into the provider request (OpenCelliD is no longer used) | A single provider call per cycle. The cell anchors the fix when APs are sparse |
-| Provider behind a `Resolver` interface (`google` default, `unwiredlabs` optional) | A provider is swapped with one uci option |
-| Pure parsing, injected I/O | Parsers are table-tested without a router or network |
-| Standard library only | Small static binary for the router, no dependency updates besides Go and CI actions |
-| No fabricated data | A fix without a celloc source is not written to InfluxDB; a missing coordinate is never turned into 0,0 |
-| Debounce attempts, not only successes | A failing InfluxDB is not hammered every second |
+- **Serve gpsd rather than a custom API.** Any gpsd client works. Position quality is conveyed through `mode` and `eph`, and celloc adds only the `wifix`/`cellfix` extension objects.
+- **One WiFi source blending the cell into the provider request (OpenCelliD is no longer used).** A single provider call per cycle. The cell anchors the fix when APs are sparse.
+- **Provider behind a `Resolver` interface (`google` default, `unwiredlabs` optional).** A provider is swapped with one uci option.
+- **Pure parsing, injected I/O.** Parsers are table-tested without a router or network.
+- **Standard library only.** Small static binary for the router, no dependency updates besides Go and CI actions.
+- **No fabricated data.** A fix without a celloc source is not written to InfluxDB; a missing coordinate is never turned into 0,0.
+- **Debounce attempts, not only successes.** A failing InfluxDB is not hammered every second.
 
 ## 10. Quality requirements
 
-| Quality | How it is met | Evidence |
-| --- | --- | --- |
-| Correctness of data | Honest TPV, unattributed fixes refused | `internal/gpsd`, `internal/influx` tests |
-| Robustness | Timeouts, cache until stale, reconnect, procd respawn without retry limit | `cmd/geolocd`, `cmd/geoinflux`, `packaging/openwrt/files/geolocd.init` |
-| Observability | Fix acquired and lost transitions logged once, `geo_status` heartbeat in InfluxDB | `cmd/geolocd`, `cmd/geoinflux` |
-| Test coverage | At least 85% over `./internal/...`, enforced in CI, `go test -race` | `.github/workflows/ci.yml` |
-| Supply chain | SHA-pinned actions, gitleaks, `govulncheck` | `.github/workflows/` |
+- **Correctness of data.** Honest TPV, unattributed fixes refused. Evidence: `internal/gpsd`, `internal/influx` tests.
+- **Robustness.** Timeouts, cache until stale, reconnect, procd respawn without retry limit. Evidence: `cmd/geolocd`, `cmd/geoinflux`, `packaging/openwrt/files/geolocd.init`.
+- **Observability.** Fix acquired and lost transitions logged once, `geo_status` heartbeat in InfluxDB. Evidence: `cmd/geolocd`, `cmd/geoinflux`.
+- **Test coverage.** At least 85% over `./internal/...`, enforced in CI, `go test -race`. Evidence: `.github/workflows/ci.yml`.
+- **Supply chain.** SHA-pinned actions, gitleaks, `govulncheck`. Evidence: `.github/workflows/`.
 
 ## 11. Risks and technical debt
 
@@ -382,18 +368,4 @@ comments.
 
 ## 12. Glossary
 
-| Term | Meaning |
-| --- | --- |
-| AP, BSSID | WiFi access point and its MAC address, as seen in `iw` scan output |
-| MCC, MNC | Mobile country code and mobile network code of the serving cell |
-| CID, TAC | Cell identity and tracking area code (hex in the AT reply, decimal in celloc) |
-| LTE, NR5G-NSA, NR5G-SA | Radio technologies in `AT+QENG` lines. NSA is 5G anchored on an LTE cell |
-| `AT+QENG` | Quectel modem command that reports the serving cell |
-| gpsd | Daemon and JSON protocol that location clients speak. celloc implements a subset |
-| TPV, SKY | gpsd time-position-velocity and satellite reports |
-| `eph`, `epx`, `epy` | Estimated horizontal error radius, and per-axis error, in metres |
-| `wifix`, `cellfix` | celloc's non-standard TPV objects that say what resolved the fix |
-| uci | OpenWrt's configuration system |
-| procd | OpenWrt's service supervisor |
-| opkg, ipk | OpenWrt's package manager and its package format |
-| Fix | `source.Fix`, celloc's internal position estimate |
+See the [glossary](glossary.md).
