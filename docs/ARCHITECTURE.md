@@ -2,8 +2,7 @@
 
 celloc turns a cellular modem's serving-cell identity (plus nearby WiFi access points) into a
 position and serves it over the gpsd protocol, with an optional uploader to InfluxDB. This page is
-the single architecture description. It follows the [arc42](https://arc42.org) sections and draws
-the structure with [C4](https://c4model.com) diagrams (Mermaid).
+the single architecture description.
 
 ## 1. Introduction and goals
 
@@ -38,7 +37,7 @@ For a first run see [Getting started](getting-started.md).
 
 ## 3. Context and scope
 
-C4 level 1: celloc as one system among its users and neighbours.
+celloc as one system among its users and neighbours.
 
 ```mermaid
 flowchart LR
@@ -89,7 +88,7 @@ networks and the serving cell** to the configured provider, and nothing else.
 
 ### Level 1: containers
 
-C4 level 2: the two deployable programs and what they talk to.
+The two deployable programs and what they talk to.
 
 ```mermaid
 flowchart LR
@@ -117,7 +116,7 @@ flowchart LR
 
 ### Level 2: `geolocd` components
 
-C4 level 3, for the router daemon. `cmd/geolocd` wires the blocks together.
+The router daemon's building blocks. `cmd/geolocd` wires the blocks together.
 
 ```mermaid
 flowchart TB
@@ -260,7 +259,7 @@ the TPV stream ticks every `-stream` interval, and the uploader debounces its wr
 
 ## 7. Deployment view
 
-C4 deployment diagram: where each program runs and how it gets there.
+Where each program runs and how it gets there.
 
 ```mermaid
 flowchart LR
