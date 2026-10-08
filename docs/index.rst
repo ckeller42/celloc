@@ -25,6 +25,7 @@ InfluxDB. A WiFi or cell fix is never presented as a GPS fix.
    reference/gpsd
    reference/config
    reference/influxdb
+   glossary
 
 .. toctree::
    :caption: Explanation

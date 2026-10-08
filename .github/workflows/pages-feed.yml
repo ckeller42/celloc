@@ -6,6 +6,9 @@ name: Pages feed (opkg)
 # serves* those assets — it never rebuilds them, so the feed is byte-identical
 # to the Releases downloads and there is no duplicated Go/ipk build logic.
 #
+# The same artifact also carries the Sphinx site (docs/) under public/docs/; the
+# feed path is unchanged.
+#
 # Trigger: `workflow_run` on the Release workflow, NOT `release: published`.
 # release.yml publishes with the default GITHUB_TOKEN, and events caused by
 # GITHUB_TOKEN never start other workflows — except workflow_run. workflow_run
@@ -100,6 +103,19 @@ jobs:
               -a --checksum sha256 "$dest" > "$dest/Packages"
           gzip -9 -kf "$dest/Packages"
           echo "--- Packages ---"; cat "$dest/Packages"
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+
+      - name: Build the documentation site
+        run: |
+          set -eu
+          pip install -r docs/requirements.txt
+          # The site lives under docs/, so the feed at public/<arch>/ keeps its URL.
+          sphinx-build -b html -W docs public/docs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
